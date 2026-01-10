@@ -128,16 +128,6 @@ export function StudioProvider({ children }) {
     }
   };
 
-  const createGame = async (name) => {
-    try {
-      await api.createGame(name);
-      await loadGames();
-      dispatch({ type: 'SET_CURRENT_GAME', payload: name });
-    } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
-    }
-  };
-
   const selectGame = (name) => {
     dispatch({ type: 'SET_CURRENT_GAME', payload: name });
   };
@@ -243,7 +233,6 @@ export function StudioProvider({ children }) {
 
   const value = {
     ...state,
-    createGame,
     selectGame,
     uploadImage,
     deleteImage,

@@ -7,17 +7,7 @@ import { ObjectPanel } from './components/ObjectPanel';
 import './App.css';
 
 function GameSelector() {
-  const { games, currentGame, selectGame, createGame } = useStudio();
-  const [showNew, setShowNew] = useState(false);
-  const [newName, setNewName] = useState('');
-
-  const handleCreate = () => {
-    if (newName.trim()) {
-      createGame(newName.trim());
-      setNewName('');
-      setShowNew(false);
-    }
-  };
+  const { games, currentGame, selectGame } = useStudio();
 
   return (
     <div className="game-selector">
@@ -25,29 +15,14 @@ function GameSelector() {
         value={currentGame || ''}
         onChange={(e) => selectGame(e.target.value)}
       >
-        <option value="">-- Select Game --</option>
+        <option value="">-- Select Project --</option>
         {games.map((game) => (
           <option key={game} value={game}>
             {game}
           </option>
         ))}
       </select>
-      {!showNew ? (
-        <button onClick={() => setShowNew(true)}>+ New Game</button>
-      ) : (
-        <div className="new-game-form">
-          <input
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Game name..."
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-            autoFocus
-          />
-          <button onClick={handleCreate}>Create</button>
-          <button onClick={() => setShowNew(false)}>Cancel</button>
-        </div>
-      )}
+      <span className="hint">Games discovered from games/ folder</span>
     </div>
   );
 }
@@ -82,7 +57,7 @@ function ContentPanel({ category }) {
   if (!currentGame) {
     return (
       <div className="content-panel empty">
-        <p>Select or create a game to get started</p>
+        <p>Select a project to edit its assets</p>
       </div>
     );
   }

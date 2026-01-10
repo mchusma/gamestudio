@@ -12,19 +12,33 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3001;
-const DATA_DIR = path.join(__dirname, 'data', 'games');
+
+// Project paths - games are stored in actual game folders, not a separate data directory
+const PROJECT_ROOT = path.join(__dirname, '..');
+const GAMES_DIR = path.join(PROJECT_ROOT, 'games');
+const DASHBOARD_DIR = path.join(PROJECT_ROOT, 'dashboard');
+
+// Helper to resolve game paths
+function getGamePath(gameId) {
+  if (gameId === 'dashboard') return DASHBOARD_DIR;
+  return path.join(GAMES_DIR, gameId);
+}
 
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from data directory
-app.use('/assets', express.static(path.join(__dirname, 'data', 'games')));
+// Serve static assets from game folders
+app.get('/assets/:game/:type/:filename', (req, res) => {
+  const gameDir = getGamePath(req.params.game);
+  const assetPath = path.join(req.params.type, req.params.filename);
+  res.sendFile(path.join(gameDir, assetPath));
+});
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Ensure data directory exists
+// Ensure directory exists
 async function ensureDir(dir) {
   try {
     await fs.access(dir);
@@ -33,71 +47,75 @@ async function ensureDir(dir) {
   }
 }
 
-// Initialize data directory
-await ensureDir(DATA_DIR);
-
 // ============ GAMES ============
 
-// List all games
+// List all games - discovers games by scanning for main.lua files
 app.get('/api/games', async (req, res) => {
   try {
-    await ensureDir(DATA_DIR);
-    const entries = await fs.readdir(DATA_DIR, { withFileTypes: true });
-    const games = entries
-      .filter(e => e.isDirectory())
-      .map(e => e.name);
-    res.json(games);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const discoveredGames = [];
 
-// Create a new game
-app.post('/api/games', async (req, res) => {
-  try {
-    const { name } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Game name is required' });
+    // Scan games/ folder for directories with main.lua
+    const gamesEntries = await fs.readdir(GAMES_DIR, { withFileTypes: true });
+    for (const entry of gamesEntries) {
+      if (entry.isDirectory()) {
+        const mainLuaPath = path.join(GAMES_DIR, entry.name, 'main.lua');
+        try {
+          await fs.access(mainLuaPath);
+          discoveredGames.push(entry.name);
+        } catch {
+          // No main.lua, skip this folder
+        }
+      }
     }
 
-    const gameDir = path.join(DATA_DIR, name);
-    await ensureDir(gameDir);
-    await ensureDir(path.join(gameDir, 'images'));
-    await ensureDir(path.join(gameDir, 'sounds'));
-    await ensureDir(path.join(gameDir, 'animations'));
+    // Include dashboard as editable project
+    discoveredGames.push('dashboard');
 
-    // Create game.json with default structure
-    const gameData = {
-      name,
-      images: [],
-      sounds: [],
-      animations: [],
-      objects: [],
-      createdAt: new Date().toISOString()
-    };
-    await fs.writeFile(
-      path.join(gameDir, 'game.json'),
-      JSON.stringify(gameData, null, 2)
-    );
+    // Sort alphabetically
+    discoveredGames.sort();
 
-    res.json({ success: true, name });
+    res.json(discoveredGames);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get game data
+// Create a new game - games must be created manually with main.lua
+app.post('/api/games', async (req, res) => {
+  res.status(400).json({
+    error: 'Games must be created manually in the games/ folder with a main.lua file'
+  });
+});
+
+// Get game data - extends simple game.json with studio fields
 app.get('/api/games/:game', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
 
+    let gameData;
     try {
       const data = await fs.readFile(gameFile, 'utf-8');
-      res.json(JSON.parse(data));
+      gameData = JSON.parse(data);
     } catch {
-      res.status(404).json({ error: 'Game not found' });
+      // No game.json exists - create default from folder name
+      gameData = {
+        name: req.params.game,
+        description: ''
+      };
     }
+
+    // Ensure studio-required fields exist (don't overwrite if present)
+    const extendedData = {
+      name: gameData.name || req.params.game,
+      description: gameData.description || '',
+      images: gameData.images || [],
+      sounds: gameData.sounds || [],
+      animations: gameData.animations || [],
+      objects: gameData.objects || []
+    };
+
+    res.json(extendedData);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -106,7 +124,7 @@ app.get('/api/games/:game', async (req, res) => {
 // Save game data
 app.put('/api/games/:game', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
 
     await fs.writeFile(gameFile, JSON.stringify(req.body, null, 2));
@@ -121,7 +139,7 @@ app.put('/api/games/:game', async (req, res) => {
 // Upload image
 app.post('/api/games/:game/images', upload.single('image'), async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const imagesDir = path.join(gameDir, 'images');
     await ensureDir(imagesDir);
 
@@ -161,7 +179,7 @@ app.post('/api/games/:game/images', upload.single('image'), async (req, res) => 
 // Delete image
 app.delete('/api/games/:game/images/:id', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -189,7 +207,7 @@ app.delete('/api/games/:game/images/:id', async (req, res) => {
 // Upload sound
 app.post('/api/games/:game/sounds', upload.single('sound'), async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const soundsDir = path.join(gameDir, 'sounds');
     await ensureDir(soundsDir);
 
@@ -225,7 +243,7 @@ app.post('/api/games/:game/sounds', upload.single('sound'), async (req, res) => 
 // Delete sound
 app.delete('/api/games/:game/sounds/:id', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -254,7 +272,7 @@ app.delete('/api/games/:game/sounds/:id', async (req, res) => {
 app.post('/api/games/:game/animations', async (req, res) => {
   try {
     const { name, imageIds, frameDuration, loop } = req.body;
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -335,7 +353,7 @@ app.post('/api/games/:game/animations', async (req, res) => {
 app.put('/api/games/:game/animations/:id', async (req, res) => {
   try {
     const { name, imageIds, frameDuration, loop } = req.body;
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -411,7 +429,7 @@ app.put('/api/games/:game/animations/:id', async (req, res) => {
 // Delete animation
 app.delete('/api/games/:game/animations/:id', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
