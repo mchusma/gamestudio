@@ -1,0 +1,111 @@
+const API_BASE = 'http://localhost:3001/api';
+
+export const api = {
+  // Games
+  async getGames() {
+    const res = await fetch(`${API_BASE}/games`);
+    return res.json();
+  },
+
+  async createGame(name) {
+    const res = await fetch(`${API_BASE}/games`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    return res.json();
+  },
+
+  async getGame(name) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(name)}`);
+    return res.json();
+  },
+
+  async saveGame(name, data) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(name)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  // Images
+  async uploadImage(game, file, name) {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('name', name || file.name.replace(/\.[^/.]+$/, ''));
+
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/images`, {
+      method: 'POST',
+      body: formData
+    });
+    return res.json();
+  },
+
+  async deleteImage(game, id) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/images/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  // Sounds
+  async uploadSound(game, file, name) {
+    const formData = new FormData();
+    formData.append('sound', file);
+    formData.append('name', name || file.name.replace(/\.[^/.]+$/, ''));
+
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/sounds`, {
+      method: 'POST',
+      body: formData
+    });
+    return res.json();
+  },
+
+  async deleteSound(game, id) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/sounds/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  // Animations
+  async createAnimation(game, { name, imageIds, frameDuration, loop }) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/animations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, imageIds, frameDuration, loop })
+    });
+    return res.json();
+  },
+
+  async updateAnimation(game, id, { name, imageIds, frameDuration, loop }) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/animations/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, imageIds, frameDuration, loop })
+    });
+    return res.json();
+  },
+
+  async deleteAnimation(game, id) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/animations/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  // Asset URLs
+  getImageUrl(game, filename) {
+    return `http://localhost:3001/assets/${encodeURIComponent(game)}/images/${filename}`;
+  },
+
+  getSoundUrl(game, filename) {
+    return `http://localhost:3001/assets/${encodeURIComponent(game)}/sounds/${filename}`;
+  },
+
+  getAnimationUrl(game, filename) {
+    return `http://localhost:3001/assets/${encodeURIComponent(game)}/animations/${filename}`;
+  }
+};
