@@ -407,8 +407,13 @@ export function ObjectPanel() {
   const [expandedId, setExpandedId] = useState(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
+  const [search, setSearch] = useState('');
 
   const objects = gameData?.objects || [];
+
+  const filteredObjects = objects.filter(obj =>
+    obj.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const createObject = () => {
     if (!newName.trim()) return;
@@ -435,12 +440,12 @@ export function ObjectPanel() {
   };
 
   return (
-    <div className="content-panel">
-      <div className="panel-header">
-        <h2>Objects</h2>
-        <div className="panel-actions">
+    <div className="image-gallery-container">
+      <div className="image-list-column" style={{ width: '100%', maxWidth: 'none', borderRight: 'none' }}>
+        <div className="column-header">
+          <h3>Objects</h3>
           {!showNewForm ? (
-            <button onClick={() => setShowNewForm(true)}>+ New Object</button>
+            <button className="small" onClick={() => setShowNewForm(true)}>+ Add</button>
           ) : (
             <div style={{ display: 'flex', gap: 8 }}>
               <input
@@ -454,40 +459,51 @@ export function ObjectPanel() {
                 }}
                 autoFocus
                 style={{
-                  padding: '8px 12px',
+                  padding: '6px 10px',
                   background: 'var(--bg-tertiary)',
                   border: '1px solid var(--border)',
                   borderRadius: 4,
-                  color: 'var(--text-primary)'
+                  color: 'var(--text-primary)',
+                  fontSize: 13
                 }}
               />
-              <button onClick={createObject}>Create</button>
-              <button className="secondary" onClick={() => setShowNewForm(false)}>Cancel</button>
+              <button className="small" onClick={createObject}>Create</button>
+              <button className="small secondary" onClick={() => setShowNewForm(false)}>Cancel</button>
+            </div>
+          )}
+        </div>
+
+        <div className="list-search">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+          {objects.length === 0 && !showNewForm ? (
+            <div className="empty-list">
+              <p>No objects yet</p>
+              <p className="hint">Click + Add to create one</p>
+            </div>
+          ) : (
+            <div className="object-list">
+              {filteredObjects.map((obj) => (
+                <ObjectCard
+                  key={obj.id}
+                  object={obj}
+                  expanded={expandedId === obj.id}
+                  onToggle={() => setExpandedId(expandedId === obj.id ? null : obj.id)}
+                  onUpdate={updateObject}
+                  onDelete={deleteObject}
+                />
+              ))}
             </div>
           )}
         </div>
       </div>
-
-      {objects.length === 0 && !showNewForm ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📦</div>
-          <p>No objects yet</p>
-          <p>Create an object to define game entities with states</p>
-        </div>
-      ) : (
-        <div className="object-list">
-          {objects.map((obj) => (
-            <ObjectCard
-              key={obj.id}
-              object={obj}
-              expanded={expandedId === obj.id}
-              onToggle={() => setExpandedId(expandedId === obj.id ? null : obj.id)}
-              onUpdate={updateObject}
-              onDelete={deleteObject}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

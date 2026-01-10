@@ -1,0 +1,39 @@
+{
+  "name": "dashboard",
+  "description": "",
+  "images": [
+    {
+      "id": "90444468-9168-4077-b809-b3de77d48c87",
+      "name": "Gemini_Generated_Image_kmcprnkmcprnkmcp",
+      "filename": "90444468-9168-4077-b809-b3de77d48c87.png",
+      "width": 2816,
+      "height": 1536,
+      "createdAt": "2026-01-10T22:19:00.810Z"
+    }
+  ],
+  "sounds": [],
+  "animations": [
+    {
+      "id": "86c47fc2-85e5-486e-b0ed-e5ed758720a1",
+      "name": "99",
+      "filename": "86c47fc2-85e5-486e-b0ed-e5ed758720a1.png",
+      "frameWidth": 1050,
+      "frameHeight": 600,
+      "frameCount": 1,
+      "frameDuration": 0.1,
+      "loop": true,
+      "sourceImages": [
+        "eb76b8ca-6ceb-40eb-bd7f-cebe549caedd"
+      ],
+      "createdAt": "2026-01-10T22:18:30.889Z"
+    }
+  ],
+  "objects": [
+    {
+      "id": "obj_1768079295269",
+      "name": "test",
+      "states": [],
+      "createdAt": "2026-01-10T21:08:15.269Z"
+    }
+  ]
+}

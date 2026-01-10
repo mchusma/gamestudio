@@ -6,7 +6,15 @@ export function SoundGallery() {
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [playingId, setPlayingId] = useState(null);
+  const [selectedSound, setSelectedSound] = useState(null);
+  const [search, setSearch] = useState('');
   const audioRef = useRef(null);
+
+  const sounds = gameData?.sounds || [];
+
+  const filteredSounds = sounds.filter(sound =>
+    sound.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files);
@@ -20,10 +28,18 @@ export function SoundGallery() {
     e.target.value = '';
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (e, sound) => {
+    e.stopPropagation();
     if (confirm('Delete this sound?')) {
-      await deleteSound(id);
+      await deleteSound(sound.id);
+      if (selectedSound?.id === sound.id) {
+        setSelectedSound(null);
+      }
     }
+  };
+
+  const handleSelect = (sound) => {
+    setSelectedSound(sound);
   };
 
   const handlePlay = (sound) => {
@@ -44,15 +60,18 @@ export function SoundGallery() {
     setPlayingId(sound.id);
   };
 
-  const sounds = gameData?.sounds || [];
-
   return (
-    <div className="content-panel">
-      <div className="panel-header">
-        <h2>Sounds</h2>
-        <div className="panel-actions">
-          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? 'Uploading...' : 'Upload Sound'}
+    <div className="image-gallery-container">
+      {/* Left column - List */}
+      <div className="image-list-column">
+        <div className="column-header">
+          <h3>Sounds</h3>
+          <button
+            className="small"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            + Add
           </button>
           <input
             ref={fileInputRef}
@@ -63,39 +82,86 @@ export function SoundGallery() {
             style={{ display: 'none' }}
           />
         </div>
-      </div>
 
-      {sounds.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">🔊</div>
-          <p>No sounds yet</p>
-          <p>Upload .wav, .mp3, or .ogg files</p>
+        <div className="list-search">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-      ) : (
-        <div className="sound-list">
-          {sounds.map((sound) => (
-            <div key={sound.id} className="sound-item">
-              <span className="sound-item-icon">🔊</span>
-              <div className="sound-item-info">
-                <div className="sound-item-name">{sound.name}</div>
-                <div className="sound-item-format">.{sound.format}</div>
+
+        <div className="image-list">
+          {filteredSounds.map((sound) => (
+            <div
+              key={sound.id}
+              className={`image-list-item ${selectedSound?.id === sound.id ? 'selected' : ''}`}
+              onClick={() => handleSelect(sound)}
+            >
+              <div className="image-list-thumb">
+                <span style={{ fontSize: '20px' }}>🔊</span>
               </div>
-              <div className="sound-item-actions">
-                <button
-                  className="secondary small"
-                  onClick={() => handlePlay(sound)}
-                >
-                  {playingId === sound.id ? '⏹ Stop' : '▶ Play'}
-                </button>
-                <button
-                  className="danger small"
-                  onClick={() => handleDelete(sound.id)}
-                >
-                  Delete
-                </button>
+              <div className="image-list-info">
+                <span className="image-list-name">{sound.name}</span>
+                <span className="image-list-meta">.{sound.format}</span>
               </div>
+              <button
+                className="delete-btn"
+                onClick={(e) => handleDelete(e, sound)}
+              >
+                ×
+              </button>
             </div>
           ))}
+
+          {sounds.length === 0 && (
+            <div className="empty-list">
+              <p>No sounds yet</p>
+              <p className="hint">Click + Add to upload</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right column - Detail panel */}
+      {selectedSound && (
+        <div className="image-detail-column">
+          <div className="column-header">
+            <h3>Sound Details</h3>
+          </div>
+
+          <div className="detail-preview">
+            <span style={{ fontSize: '64px' }}>🔊</span>
+          </div>
+
+          <div className="detail-form">
+            <div className="form-group">
+              <label>Name</label>
+              <input
+                type="text"
+                value={selectedSound.name}
+                readOnly
+                placeholder="Sound name"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Format</label>
+              <input
+                type="text"
+                value={`.${selectedSound.format}`}
+                readOnly
+              />
+            </div>
+
+            <button
+              onClick={() => handlePlay(selectedSound)}
+              style={{ marginTop: '8px' }}
+            >
+              {playingId === selectedSound.id ? '⏹ Stop' : '▶ Play'}
+            </button>
+          </div>
         </div>
       )}
     </div>

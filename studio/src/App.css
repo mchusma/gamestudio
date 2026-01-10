@@ -36,67 +36,62 @@ body {
   height: 100vh;
 }
 
-.studio-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border);
-}
-
-.studio-header h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
 .studio-body {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-/* Game Selector */
+/* Game Selector in Sidebar */
 .game-selector {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .game-selector select {
-  padding: 8px 12px;
-  background: var(--bg-secondary);
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-primary);
-  font-size: 14px;
-  min-width: 180px;
+  font-size: 13px;
+  width: 100%;
 }
 
-.new-game-form {
+.new-game-btn {
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.new-game-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(74, 158, 255, 0.1);
+}
+
+.sidebar-categories {
   display: flex;
-  gap: 8px;
-}
-
-.new-game-form input {
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 14px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0;
 }
 
 /* Sidebar */
 .sidebar {
-  width: 160px;
+  width: 180px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
-  padding: 12px 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
 .sidebar-item {
@@ -132,7 +127,6 @@ body {
 .studio-content {
   flex: 1;
   overflow: auto;
-  padding: 20px;
 }
 
 .content-panel {
@@ -144,6 +138,7 @@ body {
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
+  padding: 20px;
 }
 
 /* Common Panel Styles */
@@ -749,4 +744,245 @@ button.small {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #444;
+}
+
+/* Image Gallery - Multi-column layout */
+.image-gallery-container {
+  display: flex;
+  height: 100%;
+}
+
+.image-list-column {
+  width: 300px;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+}
+
+.image-detail-column {
+  flex: 1;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.column-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.image-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.image-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.image-list-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.image-list-item.selected {
+  background: rgba(74, 158, 255, 0.12);
+}
+
+.image-list-thumb {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.image-list-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.animation-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: var(--accent);
+  color: white;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.image-list-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.image-list-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.image-list-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 18px;
+  padding: 4px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.image-list-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.delete-btn:hover {
+  color: var(--danger);
+}
+
+.empty-list {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.empty-list p {
+  margin: 4px 0;
+}
+
+.empty-list .hint {
+  font-size: 12px;
+}
+
+/* Detail panel */
+.detail-preview {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.detail-form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.animation-frames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.frame-thumb {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.frame-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.frame-thumb span {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 9px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.convert-animation-form {
+  background: var(--bg-secondary);
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* List search */
+.list-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.list-search input {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.list-search input::placeholder {
+  color: var(--text-secondary);
 }

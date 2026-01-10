@@ -2,51 +2,49 @@ import { useState } from 'react';
 import { StudioProvider, useStudio } from './context/StudioContext';
 import { ImageGallery } from './components/ImageGallery';
 import { SoundGallery } from './components/SoundGallery';
-import { AnimationPanel } from './components/AnimationPanel';
 import { ObjectPanel } from './components/ObjectPanel';
 import './App.css';
 
-function GameSelector() {
-  const { games, currentGame, selectGame } = useStudio();
-
-  return (
-    <div className="game-selector">
-      <select
-        value={currentGame || ''}
-        onChange={(e) => selectGame(e.target.value)}
-      >
-        <option value="">-- Select Project --</option>
-        {games.map((game) => (
-          <option key={game} value={game}>
-            {game}
-          </option>
-        ))}
-      </select>
-      <span className="hint">Games discovered from games/ folder</span>
-    </div>
-  );
-}
-
 function Sidebar({ activeCategory, onCategoryChange }) {
+  const { games, currentGame, selectGame } = useStudio();
   const categories = [
     { id: 'images', label: 'Images', icon: '🖼️' },
     { id: 'sounds', label: 'Sounds', icon: '🔊' },
-    { id: 'animations', label: 'Animations', icon: '🎬' },
     { id: 'objects', label: 'Objects', icon: '📦' }
   ];
 
+  const handleNewGame = () => {
+    alert('Create a new folder in games/ with a main.lua file');
+  };
+
   return (
     <nav className="sidebar">
-      {categories.map((cat) => (
-        <button
-          key={cat.id}
-          className={`sidebar-item ${activeCategory === cat.id ? 'active' : ''}`}
-          onClick={() => onCategoryChange(cat.id)}
+      <div className="game-selector">
+        <select
+          value={currentGame || ''}
+          onChange={(e) => selectGame(e.target.value)}
         >
-          <span className="icon">{cat.icon}</span>
-          <span className="label">{cat.label}</span>
-        </button>
-      ))}
+          <option value="">-- Select Project --</option>
+          {games.map((game) => (
+            <option key={game} value={game}>
+              {game}
+            </option>
+          ))}
+        </select>
+        <button className="new-game-btn" onClick={handleNewGame}>+ New</button>
+      </div>
+      <div className="sidebar-categories">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            className={`sidebar-item ${activeCategory === cat.id ? 'active' : ''}`}
+            onClick={() => onCategoryChange(cat.id)}
+          >
+            <span className="icon">{cat.icon}</span>
+            <span className="label">{cat.label}</span>
+          </button>
+        ))}
+      </div>
     </nav>
   );
 }
@@ -75,8 +73,6 @@ function ContentPanel({ category }) {
       return <ImageGallery />;
     case 'sounds':
       return <SoundGallery />;
-    case 'animations':
-      return <AnimationPanel />;
     case 'objects':
       return <ObjectPanel />;
     default:
@@ -89,10 +85,6 @@ function StudioApp() {
 
   return (
     <div className="studio">
-      <header className="studio-header">
-        <h1>Love2D Studio</h1>
-        <GameSelector />
-      </header>
       <div className="studio-body">
         <Sidebar
           activeCategory={activeCategory}
