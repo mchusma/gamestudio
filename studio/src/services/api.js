@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = '/api';
 
 export const api = {
   // Games
@@ -116,14 +116,14 @@ export const api = {
 
   // Asset URLs
   getImageUrl(game, filename) {
-    return `http://localhost:3001/assets/${encodeURIComponent(game)}/images/${filename}`;
+    return `/assets/${encodeURIComponent(game)}/images/${filename}`;
   },
 
   getSoundUrl(game, filename) {
-    return `http://localhost:3001/assets/${encodeURIComponent(game)}/sounds/${filename}`;
+    return `/assets/${encodeURIComponent(game)}/sounds/${filename}`;
   },
 
   getAnimationUrl(game, filename) {
-    return `http://localhost:3001/assets/${encodeURIComponent(game)}/animations/${filename}`;
+    return `/assets/${encodeURIComponent(game)}/animations/${filename}`;
   }
 };

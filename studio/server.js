@@ -11,7 +11,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Project paths - games are stored in actual game folders, not a separate data directory
 const PROJECT_ROOT = path.join(__dirname, '..');
@@ -704,6 +705,19 @@ app.post('/api/games/:game/sounds/from-url', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// In production, serve the built frontend
+if (isProduction) {
+  const distPath = path.join(__dirname, 'dist');
+  app.use(express.static(distPath));
+
+  // Handle client-side routing - serve index.html for any non-API routes
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/') && !req.path.startsWith('/assets/')) {
+      res.sendFile(path.join(distPath, 'index.html'));
+    }
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Studio API server running on http://localhost:${PORT}`);
