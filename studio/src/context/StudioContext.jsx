@@ -3,6 +3,8 @@ import { api } from '../services/api';
 
 const StudioContext = createContext(null);
 
+const STORAGE_KEY = 'love2d-studio-current-game';
+
 const initialState = {
   games: [],
   currentGame: null,
@@ -113,6 +115,12 @@ export function StudioProvider({ children }) {
     try {
       const games = await api.getGames();
       dispatch({ type: 'SET_GAMES', payload: games });
+
+      // Restore previously selected game from localStorage
+      const savedGame = localStorage.getItem(STORAGE_KEY);
+      if (savedGame && games.includes(savedGame)) {
+        dispatch({ type: 'SET_CURRENT_GAME', payload: savedGame });
+      }
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     }
@@ -130,6 +138,12 @@ export function StudioProvider({ children }) {
 
   const selectGame = (name) => {
     dispatch({ type: 'SET_CURRENT_GAME', payload: name });
+    // Save selection to localStorage
+    if (name) {
+      localStorage.setItem(STORAGE_KEY, name);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
   };
 
   const uploadImage = async (file, name) => {
