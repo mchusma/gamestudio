@@ -14,14 +14,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Project paths - games are stored in actual game folders, not a separate data directory
-const PROJECT_ROOT = path.join(__dirname, '..');
-const GAMES_DIR = path.join(PROJECT_ROOT, 'games');
-const DASHBOARD_DIR = path.join(PROJECT_ROOT, 'dashboard');
+// Project paths - in production, use local data folder; in development, use parent directory structure
+const PROJECT_ROOT = isProduction ? __dirname : path.join(__dirname, '..');
+const GAMES_DIR = isProduction ? path.join(__dirname, 'data', 'games') : path.join(PROJECT_ROOT, 'games');
 
 // Helper to resolve game paths
 function getGamePath(gameId) {
-  if (gameId === 'dashboard') return DASHBOARD_DIR;
   return path.join(GAMES_DIR, gameId);
 }
 
@@ -55,22 +53,33 @@ app.get('/api/games', async (req, res) => {
   try {
     const discoveredGames = [];
 
-    // Scan games/ folder for directories with main.lua
-    const gamesEntries = await fs.readdir(GAMES_DIR, { withFileTypes: true });
-    for (const entry of gamesEntries) {
-      if (entry.isDirectory()) {
-        const mainLuaPath = path.join(GAMES_DIR, entry.name, 'main.lua');
-        try {
-          await fs.access(mainLuaPath);
-          discoveredGames.push(entry.name);
-        } catch {
-          // No main.lua, skip this folder
+    // Ensure games directory exists
+    await ensureDir(GAMES_DIR);
+
+    // Scan games/ folder for directories with main.lua or game.json
+    try {
+      const gamesEntries = await fs.readdir(GAMES_DIR, { withFileTypes: true });
+      for (const entry of gamesEntries) {
+        if (entry.isDirectory()) {
+          const mainLuaPath = path.join(GAMES_DIR, entry.name, 'main.lua');
+          const gameJsonPath = path.join(GAMES_DIR, entry.name, 'game.json');
+          try {
+            // Check for either main.lua or game.json
+            await fs.access(mainLuaPath);
+            discoveredGames.push(entry.name);
+          } catch {
+            try {
+              await fs.access(gameJsonPath);
+              discoveredGames.push(entry.name);
+            } catch {
+              // No main.lua or game.json, skip this folder
+            }
+          }
         }
       }
+    } catch {
+      // Directory might not exist yet, that's fine
     }
-
-    // Include dashboard as editable project
-    discoveredGames.push('dashboard');
 
     // Sort alphabetically
     discoveredGames.sort();
@@ -81,11 +90,42 @@ app.get('/api/games', async (req, res) => {
   }
 });
 
-// Create a new game - games must be created manually with main.lua
+// Create a new game
 app.post('/api/games', async (req, res) => {
-  res.status(400).json({
-    error: 'Games must be created manually in the games/ folder with a main.lua file'
-  });
+  try {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Game name is required' });
+    }
+
+    const gameDir = path.join(GAMES_DIR, name);
+
+    // Check if game already exists
+    try {
+      await fs.access(gameDir);
+      return res.status(400).json({ error: 'Game already exists' });
+    } catch {
+      // Game doesn't exist, we can create it
+    }
+
+    // Create game directory
+    await ensureDir(gameDir);
+
+    // Create initial game.json
+    const gameData = {
+      name,
+      description: '',
+      images: [],
+      sounds: [],
+      animations: [],
+      objects: []
+    };
+    await fs.writeFile(path.join(gameDir, 'game.json'), JSON.stringify(gameData, null, 2));
+
+    res.json({ success: true, name });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get game data - extends simple game.json with studio fields
@@ -712,9 +752,12 @@ if (isProduction) {
   app.use(express.static(distPath));
 
   // Handle client-side routing - serve index.html for any non-API routes
-  app.get('*', (req, res) => {
+  // Use middleware instead of wildcard route for Express 5 compatibility
+  app.use((req, res, next) => {
     if (!req.path.startsWith('/api/') && !req.path.startsWith('/assets/')) {
       res.sendFile(path.join(distPath, 'index.html'));
+    } else {
+      next();
     }
   });
 }
