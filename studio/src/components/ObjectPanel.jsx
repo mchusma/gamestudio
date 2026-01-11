@@ -1,491 +1,479 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStudio } from '../context/StudioContext';
-import { generateObjectCode } from '../services/luaGenerator';
 
-function StatePreview({ state, gameData, getImageUrl, getAnimationUrl }) {
-  const canvasRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const frameRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const loadedImagesRef = useRef([]);
+// Animated preview that shows the visual and can play sound
+function StatePreview({ state, gameData, getImageUrl, getSoundUrl }) {
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [isPlayingSound, setIsPlayingSound] = useState(false);
+  const audioRef = useRef(null);
 
   // Get visual data
-  const visualType = state.visualType; // 'image' or 'animation'
-  const visualId = state.visualId;
-
-  let images = [];
+  let frames = [];
   let frameDuration = 0.1;
 
-  if (visualType === 'image') {
-    const img = gameData.images.find(i => i.id === visualId);
-    if (img) images = [img];
-  } else if (visualType === 'animation') {
-    const anim = gameData.animations.find(a => a.id === visualId);
+  if (state?.visualType === 'image' && state?.visualId) {
+    const img = gameData?.images?.find(i => i.id === state.visualId);
+    if (img) frames = [img];
+  } else if (state?.visualType === 'animation' && state?.visualId) {
+    const anim = gameData?.animations?.find(a => a.id === state.visualId);
     if (anim) {
-      images = anim.sourceImages
-        ?.map(id => gameData.images.find(i => i.id === id))
-        .filter(Boolean) || [];
-      frameDuration = anim.frameDuration;
+      frames = (anim.sourceImages || [])
+        .map(id => gameData?.images?.find(i => i.id === id))
+        .filter(Boolean);
+      frameDuration = anim.frameDuration || 0.1;
     }
   }
 
-  // Load images
-  useEffect(() => {
-    if (images.length === 0) return;
-
-    const loadImages = async () => {
-      const loaded = await Promise.all(
-        images.map((img) => {
-          return new Promise((resolve) => {
-            const image = new Image();
-            image.onload = () => resolve(image);
-            image.onerror = () => resolve(null);
-            image.src = getImageUrl(img.filename);
-          });
-        })
-      );
-      loadedImagesRef.current = loaded.filter(Boolean);
-    };
-
-    loadImages();
-  }, [images, getImageUrl]);
-
   // Animation loop
   useEffect(() => {
-    if (!isPlaying || images.length === 0) return;
+    if (frames.length <= 1) return;
 
-    let animationId;
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!ctx) return;
+    const interval = setInterval(() => {
+      setCurrentFrame(prev => (prev + 1) % frames.length);
+    }, frameDuration * 1000);
 
-    const animate = (time) => {
-      if (!lastTimeRef.current) lastTimeRef.current = time;
+    return () => clearInterval(interval);
+  }, [frames.length, frameDuration]);
 
-      const elapsed = time - lastTimeRef.current;
-      if (elapsed >= frameDuration * 1000) {
-        lastTimeRef.current = time;
-        frameRef.current = (frameRef.current + 1) % loadedImagesRef.current.length;
-      }
-
-      const img = loadedImagesRef.current[frameRef.current];
-      if (img) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 4);
-        const w = img.width * scale;
-        const h = img.height * scale;
-        const x = (canvas.width - w) / 2;
-        const y = (canvas.height - h) / 2;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, x, y, w, h);
-      }
-
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
-  }, [isPlaying, images.length, frameDuration]);
-
-  if (images.length === 0) {
-    return <span style={{ color: 'var(--text-secondary)' }}>No visual</span>;
-  }
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={48}
-      height={48}
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: 4,
-        background: 'var(--bg-tertiary)'
-      }}
-    />
-  );
-}
-
-function StateEditorModal({ state, onSave, onCancel }) {
-  const { gameData, getSoundUrl } = useStudio();
-  const [name, setName] = useState(state?.name || '');
-  const [visualType, setVisualType] = useState(state?.visualType || 'image');
-  const [visualId, setVisualId] = useState(state?.visualId || '');
-  const [soundId, setSoundId] = useState(state?.soundId || '');
-  const audioRef = useRef(null);
-
-  const images = gameData?.images || [];
-  const animations = gameData?.animations || [];
-  const sounds = gameData?.sounds || [];
-
-  const handleSave = () => {
-    if (!name.trim()) return;
-    onSave({
-      ...state,
-      name: name.trim(),
-      visualType,
-      visualId: visualId || null,
-      soundId: soundId || null
-    });
-  };
+  // Reset frame when state changes
+  useEffect(() => {
+    setCurrentFrame(0);
+  }, [state?.id, state?.visualId]);
 
   const playSound = () => {
-    if (!soundId) return;
-    const sound = sounds.find(s => s.id === soundId);
+    if (!state?.soundId) return;
+    const sound = gameData?.sounds?.find(s => s.id === state.soundId);
     if (!sound) return;
 
     if (audioRef.current) {
       audioRef.current.pause();
     }
     const audio = new Audio(getSoundUrl(sound.filename));
+    audio.onended = () => setIsPlayingSound(false);
     audio.play();
     audioRef.current = audio;
+    setIsPlayingSound(true);
   };
+
+  const stopSound = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlayingSound(false);
+  };
+
+  const currentImg = frames[currentFrame];
+  const sound = state?.soundId ? gameData?.sounds?.find(s => s.id === state.soundId) : null;
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{state?.id ? 'Edit State' : 'Add State'}</h3>
-          <button className="modal-close" onClick={onCancel}>×</button>
-        </div>
-
-        <div className="animation-form">
-          <div className="form-group">
-            <label>State Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., idle, walking, jumping"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Visual Type</label>
-            <select value={visualType} onChange={(e) => {
-              setVisualType(e.target.value);
-              setVisualId('');
-            }}>
-              <option value="image">Single Image</option>
-              <option value="animation">Animation</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>{visualType === 'image' ? 'Image' : 'Animation'}</label>
-            <select value={visualId} onChange={(e) => setVisualId(e.target.value)}>
-              <option value="">-- None --</option>
-              {visualType === 'image'
-                ? images.map(img => (
-                    <option key={img.id} value={img.id}>{img.name}</option>
-                  ))
-                : animations.map(anim => (
-                    <option key={anim.id} value={anim.id}>{anim.name}</option>
-                  ))
-              }
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Sound (plays when entering state)</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <select
-                value={soundId}
-                onChange={(e) => setSoundId(e.target.value)}
-                style={{ flex: 1 }}
-              >
-                <option value="">-- None --</option>
-                {sounds.map(sound => (
-                  <option key={sound.id} value={sound.id}>{sound.name}</option>
-                ))}
-              </select>
-              {soundId && (
-                <button className="small secondary" onClick={playSound}>
-                  ▶ Test
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="modal-actions">
-          <button className="secondary" onClick={onCancel}>Cancel</button>
-          <button onClick={handleSave} disabled={!name.trim()}>
-            {state?.id ? 'Save' : 'Add State'}
-          </button>
-        </div>
+    <div className="state-preview-container">
+      <div className="state-preview-visual">
+        {currentImg ? (
+          <img
+            src={getImageUrl(currentImg.filename)}
+            alt={state?.name || 'Preview'}
+            className="state-preview-img"
+          />
+        ) : (
+          <div className="state-preview-placeholder">No visual</div>
+        )}
       </div>
-    </div>
-  );
-}
-
-function ObjectCard({ object, expanded, onToggle, onUpdate, onDelete }) {
-  const { gameData, getImageUrl, getAnimationUrl, getSoundUrl } = useStudio();
-  const [editingState, setEditingState] = useState(null);
-  const [showCode, setShowCode] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [nameValue, setNameValue] = useState(object.name);
-
-  const addState = () => {
-    setEditingState({ id: null });
-  };
-
-  const editState = (state) => {
-    setEditingState(state);
-  };
-
-  const saveState = (stateData) => {
-    let newStates;
-    if (stateData.id) {
-      newStates = object.states.map(s => s.id === stateData.id ? stateData : s);
-    } else {
-      newStates = [...object.states, { ...stateData, id: `state_${Date.now()}` }];
-    }
-    onUpdate({ ...object, states: newStates });
-    setEditingState(null);
-  };
-
-  const deleteState = (stateId) => {
-    if (confirm('Delete this state?')) {
-      onUpdate({
-        ...object,
-        states: object.states.filter(s => s.id !== stateId)
-      });
-    }
-  };
-
-  const saveName = () => {
-    if (nameValue.trim() && nameValue !== object.name) {
-      onUpdate({ ...object, name: nameValue.trim() });
-    }
-    setEditingName(false);
-  };
-
-  const copyCode = () => {
-    const code = generateObjectCode(object, gameData);
-    navigator.clipboard.writeText(code);
-    alert('Lua code copied to clipboard!');
-  };
-
-  const getVisualName = (state) => {
-    if (!state.visualId) return 'none';
-    if (state.visualType === 'image') {
-      const img = gameData.images.find(i => i.id === state.visualId);
-      return img ? img.name : 'unknown';
-    } else {
-      const anim = gameData.animations.find(a => a.id === state.visualId);
-      return anim ? anim.name : 'unknown';
-    }
-  };
-
-  const getSoundName = (state) => {
-    if (!state.soundId) return null;
-    const sound = gameData.sounds.find(s => s.id === state.soundId);
-    return sound ? sound.name : null;
-  };
-
-  return (
-    <div className="object-card">
-      <div className="object-card-header" onClick={onToggle}>
-        <div className="object-card-name">
-          <span>{expanded ? '▼' : '▶'}</span>
-          {editingName ? (
-            <input
-              type="text"
-              value={nameValue}
-              onChange={(e) => setNameValue(e.target.value)}
-              onBlur={saveName}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveName();
-                if (e.key === 'Escape') {
-                  setNameValue(object.name);
-                  setEditingName(false);
-                }
-              }}
-              onClick={(e) => e.stopPropagation()}
-              autoFocus
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--accent)',
-                borderRadius: 4,
-                padding: '2px 8px',
-                color: 'var(--text-primary)'
-              }}
-            />
-          ) : (
-            <span
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                setEditingName(true);
-              }}
-            >
-              {object.name}
-            </span>
-          )}
-          <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal', fontSize: 12 }}>
-            ({object.states.length} states)
-          </span>
-        </div>
-        <div className="panel-actions" onClick={(e) => e.stopPropagation()}>
-          <button className="small secondary" onClick={() => setShowCode(!showCode)}>
-            {showCode ? 'Hide Code' : 'Show Code'}
+      {sound && (
+        <div className="state-preview-sound">
+          <button
+            className="sound-play-btn"
+            onClick={isPlayingSound ? stopSound : playSound}
+          >
+            {isPlayingSound ? '⏹' : '▶'} {sound.name}
           </button>
-          <button className="small danger" onClick={() => onDelete(object.id)}>
-            Delete
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="object-card-body">
-          {showCode && (
-            <div className="code-export" style={{ marginBottom: 16 }}>
-              <div className="code-export-header">
-                <span>{object.name}.lua</span>
-                <button className="small" onClick={copyCode}>Copy</button>
-              </div>
-              <pre>{generateObjectCode(object, gameData)}</pre>
-            </div>
-          )}
-
-          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <strong>States</strong>
-            <button className="small" onClick={addState}>+ Add State</button>
-          </div>
-
-          {object.states.length === 0 ? (
-            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 20 }}>
-              No states yet. Add a state to define how this object looks and sounds.
-            </p>
-          ) : (
-            <div className="state-list">
-              {object.states.map((state) => (
-                <div key={state.id} className="state-item">
-                  <StatePreview
-                    state={state}
-                    gameData={gameData}
-                    getImageUrl={getImageUrl}
-                    getAnimationUrl={getAnimationUrl}
-                  />
-                  <span className="state-item-name">{state.name}</span>
-                  <span className="state-item-visual">
-                    {state.visualType === 'animation' ? '🎬' : '🖼️'} {getVisualName(state)}
-                  </span>
-                  {getSoundName(state) && (
-                    <span className="state-item-sound">
-                      🔊 {getSoundName(state)}
-                    </span>
-                  )}
-                  <div className="state-item-actions">
-                    <button className="small secondary" onClick={() => editState(state)}>
-                      Edit
-                    </button>
-                    <button className="small danger" onClick={() => deleteState(state.id)}>
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
-
-      {editingState && (
-        <StateEditorModal
-          state={editingState}
-          onSave={saveState}
-          onCancel={() => setEditingState(null)}
-        />
+      {frames.length > 1 && (
+        <div className="state-preview-info">
+          Frame {currentFrame + 1} of {frames.length}
+        </div>
       )}
     </div>
   );
 }
 
 export function ObjectPanel() {
-  const { gameData, saveObjects } = useStudio();
-  const [expandedId, setExpandedId] = useState(null);
-  const [showNewForm, setShowNewForm] = useState(false);
-  const [newName, setNewName] = useState('');
+  const { gameData, saveObjects, getImageUrl, getSoundUrl } = useStudio();
+
+  const [selectedObjectId, setSelectedObjectId] = useState(null);
+  const [selectedStateId, setSelectedStateId] = useState(null);
+  const [objectSearch, setObjectSearch] = useState('');
+  const [stateSearch, setStateSearch] = useState('');
+  const [showNewObjectInput, setShowNewObjectInput] = useState(false);
+  const [newObjectName, setNewObjectName] = useState('');
+  const [showNewStateInput, setShowNewStateInput] = useState(false);
+  const [newStateName, setNewStateName] = useState('');
 
   const objects = gameData?.objects || [];
+  const images = gameData?.images || [];
+  const animations = gameData?.animations || [];
+  const sounds = gameData?.sounds || [];
 
+  // Combined visuals list for dropdown
+  const visuals = [
+    ...images.map(img => ({ type: 'image', id: img.id, name: img.name })),
+    ...animations.map(anim => ({ type: 'animation', id: anim.id, name: anim.name }))
+  ];
+
+  const filteredObjects = objects.filter(obj =>
+    obj.name.toLowerCase().includes(objectSearch.toLowerCase())
+  );
+
+  const selectedObject = objects.find(o => o.id === selectedObjectId);
+  const filteredStates = (selectedObject?.states || []).filter(state =>
+    state.name.toLowerCase().includes(stateSearch.toLowerCase())
+  );
+  const selectedState = selectedObject?.states?.find(s => s.id === selectedStateId);
+
+  // Object CRUD
   const createObject = () => {
-    if (!newName.trim()) return;
+    if (!newObjectName.trim()) return;
     const newObject = {
       id: `obj_${Date.now()}`,
-      name: newName.trim(),
-      states: [],
+      name: newObjectName.trim(),
+      states: [{ id: `state_${Date.now()}`, name: 'default', visualType: null, visualId: null, soundId: null }],
       createdAt: new Date().toISOString()
     };
     saveObjects([...objects, newObject]);
-    setNewName('');
-    setShowNewForm(false);
-    setExpandedId(newObject.id);
-  };
-
-  const updateObject = (updated) => {
-    saveObjects(objects.map(o => o.id === updated.id ? updated : o));
+    setNewObjectName('');
+    setShowNewObjectInput(false);
+    setSelectedObjectId(newObject.id);
+    setSelectedStateId(newObject.states[0].id);
   };
 
   const deleteObject = (id) => {
     if (confirm('Delete this object and all its states?')) {
       saveObjects(objects.filter(o => o.id !== id));
+      if (selectedObjectId === id) {
+        setSelectedObjectId(null);
+        setSelectedStateId(null);
+      }
     }
   };
 
+  // State CRUD
+  const createState = () => {
+    if (!newStateName.trim() || !selectedObject) return;
+    const newState = {
+      id: `state_${Date.now()}`,
+      name: newStateName.trim(),
+      visualType: null,
+      visualId: null,
+      soundId: null
+    };
+    const updated = {
+      ...selectedObject,
+      states: [...selectedObject.states, newState]
+    };
+    saveObjects(objects.map(o => o.id === updated.id ? updated : o));
+    setNewStateName('');
+    setShowNewStateInput(false);
+    setSelectedStateId(newState.id);
+  };
+
+  const deleteState = (stateId) => {
+    if (!selectedObject) return;
+    if (selectedObject.states.length <= 1) {
+      alert('Object must have at least one state');
+      return;
+    }
+    if (confirm('Delete this state?')) {
+      const updated = {
+        ...selectedObject,
+        states: selectedObject.states.filter(s => s.id !== stateId)
+      };
+      saveObjects(objects.map(o => o.id === updated.id ? updated : o));
+      if (selectedStateId === stateId) {
+        setSelectedStateId(updated.states[0]?.id || null);
+      }
+    }
+  };
+
+  const updateState = (field, value) => {
+    if (!selectedObject || !selectedState) return;
+
+    let updatedState = { ...selectedState, [field]: value };
+
+    // If changing visual, parse the combined value
+    if (field === 'visual') {
+      if (!value) {
+        updatedState.visualType = null;
+        updatedState.visualId = null;
+      } else {
+        const [type, id] = value.split(':');
+        updatedState.visualType = type;
+        updatedState.visualId = id;
+      }
+    }
+
+    const updated = {
+      ...selectedObject,
+      states: selectedObject.states.map(s => s.id === selectedState.id ? updatedState : s)
+    };
+    saveObjects(objects.map(o => o.id === updated.id ? updated : o));
+  };
+
+  const updateStateName = (newName) => {
+    if (!selectedObject || !selectedState || !newName.trim()) return;
+    const updated = {
+      ...selectedObject,
+      states: selectedObject.states.map(s =>
+        s.id === selectedState.id ? { ...s, name: newName.trim() } : s
+      )
+    };
+    saveObjects(objects.map(o => o.id === updated.id ? updated : o));
+  };
+
+  const updateObjectName = (newName) => {
+    if (!selectedObject || !newName.trim()) return;
+    const updated = { ...selectedObject, name: newName.trim() };
+    saveObjects(objects.map(o => o.id === updated.id ? updated : o));
+  };
+
+  // Get current visual value for dropdown
+  const currentVisualValue = selectedState?.visualType && selectedState?.visualId
+    ? `${selectedState.visualType}:${selectedState.visualId}`
+    : '';
+
   return (
-    <div className="content-panel">
-      <div className="panel-header">
-        <h2>Objects</h2>
-        <div className="panel-actions">
-          {!showNewForm ? (
-            <button onClick={() => setShowNewForm(true)}>+ New Object</button>
-          ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Object name..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') createObject();
-                  if (e.key === 'Escape') setShowNewForm(false);
+    <div className="object-panel-container">
+      {/* Left column - Objects list */}
+      <div className="object-list-column">
+        <div className="column-header">
+          <h3>Objects</h3>
+          <button className="small" onClick={() => setShowNewObjectInput(true)}>
+            + Add
+          </button>
+        </div>
+
+        {showNewObjectInput && (
+          <div className="inline-add-form">
+            <input
+              type="text"
+              value={newObjectName}
+              onChange={(e) => setNewObjectName(e.target.value)}
+              placeholder="Object name..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') createObject();
+                if (e.key === 'Escape') {
+                  setShowNewObjectInput(false);
+                  setNewObjectName('');
+                }
+              }}
+              autoFocus
+            />
+            <button className="small" onClick={createObject}>Add</button>
+            <button className="small secondary" onClick={() => {
+              setShowNewObjectInput(false);
+              setNewObjectName('');
+            }}>×</button>
+          </div>
+        )}
+
+        <div className="list-search">
+          <input
+            type="text"
+            placeholder="Search objects..."
+            value={objectSearch}
+            onChange={(e) => setObjectSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="object-list">
+          {filteredObjects.map((obj) => (
+            <div
+              key={obj.id}
+              className={`object-list-item ${selectedObjectId === obj.id ? 'selected' : ''}`}
+              onClick={() => {
+                setSelectedObjectId(obj.id);
+                setSelectedStateId(obj.states[0]?.id || null);
+                setStateSearch('');
+              }}
+            >
+              <div className="object-list-info">
+                <span className="object-list-name">{obj.name}</span>
+                <span className="object-list-meta">{obj.states.length} states</span>
+              </div>
+              <button
+                className="delete-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteObject(obj.id);
                 }}
-                autoFocus
-                style={{
-                  padding: '8px 12px',
-                  background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 4,
-                  color: 'var(--text-primary)'
-                }}
-              />
-              <button onClick={createObject}>Create</button>
-              <button className="secondary" onClick={() => setShowNewForm(false)}>Cancel</button>
+              >
+                ×
+              </button>
+            </div>
+          ))}
+
+          {objects.length === 0 && (
+            <div className="empty-list">
+              <p>No objects yet</p>
+              <p className="hint">Click + Add to create</p>
             </div>
           )}
         </div>
       </div>
 
-      {objects.length === 0 && !showNewForm ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📦</div>
-          <p>No objects yet</p>
-          <p>Create an object to define game entities with states</p>
-        </div>
-      ) : (
-        <div className="object-list">
-          {objects.map((obj) => (
-            <ObjectCard
-              key={obj.id}
-              object={obj}
-              expanded={expandedId === obj.id}
-              onToggle={() => setExpandedId(expandedId === obj.id ? null : obj.id)}
-              onUpdate={updateObject}
-              onDelete={deleteObject}
+      {/* Middle column - States list */}
+      {selectedObject && (
+        <div className="state-list-column">
+          <div className="column-header">
+            <h3>States</h3>
+            <button className="small" onClick={() => setShowNewStateInput(true)}>
+              + Add
+            </button>
+          </div>
+
+          {showNewStateInput && (
+            <div className="inline-add-form">
+              <input
+                type="text"
+                value={newStateName}
+                onChange={(e) => setNewStateName(e.target.value)}
+                placeholder="State name..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') createState();
+                  if (e.key === 'Escape') {
+                    setShowNewStateInput(false);
+                    setNewStateName('');
+                  }
+                }}
+                autoFocus
+              />
+              <button className="small" onClick={createState}>Add</button>
+              <button className="small secondary" onClick={() => {
+                setShowNewStateInput(false);
+                setNewStateName('');
+              }}>×</button>
+            </div>
+          )}
+
+          <div className="list-search">
+            <input
+              type="text"
+              placeholder="Search states..."
+              value={stateSearch}
+              onChange={(e) => setStateSearch(e.target.value)}
             />
-          ))}
+          </div>
+
+          <div className="state-list">
+            {filteredStates.map((state) => (
+              <div
+                key={state.id}
+                className={`state-list-item ${selectedStateId === state.id ? 'selected' : ''}`}
+                onClick={() => setSelectedStateId(state.id)}
+              >
+                <div className="state-list-info">
+                  <span className="state-list-name">{state.name}</span>
+                  <span className="state-list-meta">
+                    {state.visualType === 'animation' ? '🎬' : state.visualType === 'image' ? '🖼️' : ''}
+                    {state.soundId ? ' 🔊' : ''}
+                  </span>
+                </div>
+                {selectedObject.states.length > 1 && (
+                  <button
+                    className="delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteState(state.id);
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Right column - State editor with preview */}
+      {selectedState && (
+        <div className="state-editor-column">
+          <div className="column-header">
+            <h3>Edit State</h3>
+          </div>
+
+          <StatePreview
+            state={selectedState}
+            gameData={gameData}
+            getImageUrl={getImageUrl}
+            getSoundUrl={getSoundUrl}
+          />
+
+          <div className="state-editor-form">
+            <div className="form-group">
+              <label>Object Name</label>
+              <input
+                type="text"
+                value={selectedObject?.name || ''}
+                onChange={(e) => updateObjectName(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>State Name</label>
+              <input
+                type="text"
+                value={selectedState.name}
+                onChange={(e) => updateStateName(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Visual (Image or Animation)</label>
+              <select
+                value={currentVisualValue}
+                onChange={(e) => updateState('visual', e.target.value)}
+              >
+                <option value="">-- None --</option>
+                <optgroup label="Images">
+                  {images.map(img => (
+                    <option key={img.id} value={`image:${img.id}`}>
+                      🖼️ {img.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Animations">
+                  {animations.map(anim => (
+                    <option key={anim.id} value={`animation:${anim.id}`}>
+                      🎬 {anim.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Sound (optional)</label>
+              <select
+                value={selectedState.soundId || ''}
+                onChange={(e) => updateState('soundId', e.target.value || null)}
+              >
+                <option value="">-- None --</option>
+                {sounds.map(sound => (
+                  <option key={sound.id} value={sound.id}>
+                    🔊 {sound.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state when no object selected */}
+      {!selectedObject && objects.length > 0 && (
+        <div className="state-empty-column">
+          <p>Select an object to view its states</p>
         </div>
       )}
     </div>

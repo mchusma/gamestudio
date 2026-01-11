@@ -12,19 +12,33 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3001;
-const DATA_DIR = path.join(__dirname, 'data', 'games');
+
+// Project paths - games are stored in actual game folders, not a separate data directory
+const PROJECT_ROOT = path.join(__dirname, '..');
+const GAMES_DIR = path.join(PROJECT_ROOT, 'games');
+const DASHBOARD_DIR = path.join(PROJECT_ROOT, 'dashboard');
+
+// Helper to resolve game paths
+function getGamePath(gameId) {
+  if (gameId === 'dashboard') return DASHBOARD_DIR;
+  return path.join(GAMES_DIR, gameId);
+}
 
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from data directory
-app.use('/assets', express.static(path.join(__dirname, 'data', 'games')));
+// Serve static assets from game folders
+app.get('/assets/:game/:type/:filename', (req, res) => {
+  const gameDir = getGamePath(req.params.game);
+  const assetPath = path.join(req.params.type, req.params.filename);
+  res.sendFile(path.join(gameDir, assetPath));
+});
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Ensure data directory exists
+// Ensure directory exists
 async function ensureDir(dir) {
   try {
     await fs.access(dir);
@@ -33,71 +47,75 @@ async function ensureDir(dir) {
   }
 }
 
-// Initialize data directory
-await ensureDir(DATA_DIR);
-
 // ============ GAMES ============
 
-// List all games
+// List all games - discovers games by scanning for main.lua files
 app.get('/api/games', async (req, res) => {
   try {
-    await ensureDir(DATA_DIR);
-    const entries = await fs.readdir(DATA_DIR, { withFileTypes: true });
-    const games = entries
-      .filter(e => e.isDirectory())
-      .map(e => e.name);
-    res.json(games);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const discoveredGames = [];
 
-// Create a new game
-app.post('/api/games', async (req, res) => {
-  try {
-    const { name } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Game name is required' });
+    // Scan games/ folder for directories with main.lua
+    const gamesEntries = await fs.readdir(GAMES_DIR, { withFileTypes: true });
+    for (const entry of gamesEntries) {
+      if (entry.isDirectory()) {
+        const mainLuaPath = path.join(GAMES_DIR, entry.name, 'main.lua');
+        try {
+          await fs.access(mainLuaPath);
+          discoveredGames.push(entry.name);
+        } catch {
+          // No main.lua, skip this folder
+        }
+      }
     }
 
-    const gameDir = path.join(DATA_DIR, name);
-    await ensureDir(gameDir);
-    await ensureDir(path.join(gameDir, 'images'));
-    await ensureDir(path.join(gameDir, 'sounds'));
-    await ensureDir(path.join(gameDir, 'animations'));
+    // Include dashboard as editable project
+    discoveredGames.push('dashboard');
 
-    // Create game.json with default structure
-    const gameData = {
-      name,
-      images: [],
-      sounds: [],
-      animations: [],
-      objects: [],
-      createdAt: new Date().toISOString()
-    };
-    await fs.writeFile(
-      path.join(gameDir, 'game.json'),
-      JSON.stringify(gameData, null, 2)
-    );
+    // Sort alphabetically
+    discoveredGames.sort();
 
-    res.json({ success: true, name });
+    res.json(discoveredGames);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get game data
+// Create a new game - games must be created manually with main.lua
+app.post('/api/games', async (req, res) => {
+  res.status(400).json({
+    error: 'Games must be created manually in the games/ folder with a main.lua file'
+  });
+});
+
+// Get game data - extends simple game.json with studio fields
 app.get('/api/games/:game', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
 
+    let gameData;
     try {
       const data = await fs.readFile(gameFile, 'utf-8');
-      res.json(JSON.parse(data));
+      gameData = JSON.parse(data);
     } catch {
-      res.status(404).json({ error: 'Game not found' });
+      // No game.json exists - create default from folder name
+      gameData = {
+        name: req.params.game,
+        description: ''
+      };
     }
+
+    // Ensure studio-required fields exist (don't overwrite if present)
+    const extendedData = {
+      name: gameData.name || req.params.game,
+      description: gameData.description || '',
+      images: gameData.images || [],
+      sounds: gameData.sounds || [],
+      animations: gameData.animations || [],
+      objects: gameData.objects || []
+    };
+
+    res.json(extendedData);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -106,7 +124,7 @@ app.get('/api/games/:game', async (req, res) => {
 // Save game data
 app.put('/api/games/:game', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
 
     await fs.writeFile(gameFile, JSON.stringify(req.body, null, 2));
@@ -121,7 +139,7 @@ app.put('/api/games/:game', async (req, res) => {
 // Upload image
 app.post('/api/games/:game/images', upload.single('image'), async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const imagesDir = path.join(gameDir, 'images');
     await ensureDir(imagesDir);
 
@@ -161,7 +179,7 @@ app.post('/api/games/:game/images', upload.single('image'), async (req, res) => 
 // Delete image
 app.delete('/api/games/:game/images/:id', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -189,7 +207,7 @@ app.delete('/api/games/:game/images/:id', async (req, res) => {
 // Upload sound
 app.post('/api/games/:game/sounds', upload.single('sound'), async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const soundsDir = path.join(gameDir, 'sounds');
     await ensureDir(soundsDir);
 
@@ -225,7 +243,7 @@ app.post('/api/games/:game/sounds', upload.single('sound'), async (req, res) => 
 // Delete sound
 app.delete('/api/games/:game/sounds/:id', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -254,7 +272,7 @@ app.delete('/api/games/:game/sounds/:id', async (req, res) => {
 app.post('/api/games/:game/animations', async (req, res) => {
   try {
     const { name, imageIds, frameDuration, loop } = req.body;
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -335,7 +353,7 @@ app.post('/api/games/:game/animations', async (req, res) => {
 app.put('/api/games/:game/animations/:id', async (req, res) => {
   try {
     const { name, imageIds, frameDuration, loop } = req.body;
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -411,7 +429,7 @@ app.put('/api/games/:game/animations/:id', async (req, res) => {
 // Delete animation
 app.delete('/api/games/:game/animations/:id', async (req, res) => {
   try {
-    const gameDir = path.join(DATA_DIR, req.params.game);
+    const gameDir = getGamePath(req.params.game);
     const gameFile = path.join(gameDir, 'game.json');
     const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
 
@@ -438,6 +456,254 @@ app.delete('/api/games/:game/animations/:id', async (req, res) => {
 
 // Objects are stored directly in game.json, so we just update the whole game data
 // The frontend will handle object manipulation and send the full objects array
+
+// ============ AI IMAGE GENERATION ============
+
+// Generate image with Gemini
+app.post('/api/generate-image', async (req, res) => {
+  try {
+    const { prompt, history } = req.body;
+
+    // Check for API key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        error: 'Gemini API key not configured. Set GEMINI_API_KEY environment variable.'
+      });
+    }
+
+    // Call Gemini API for image generation
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            ...history.map(msg => ({
+              role: msg.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: msg.content }]
+            })),
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            responseModalities: ['Text', 'Image']
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.error) {
+      return res.json({ error: data.error.message || 'Gemini API error' });
+    }
+
+    // Parse response
+    const candidate = data.candidates?.[0];
+    if (!candidate) {
+      return res.json({ error: 'No response from Gemini' });
+    }
+
+    const parts = candidate.content?.parts || [];
+    let text = '';
+    const images = [];
+
+    for (const part of parts) {
+      if (part.text) {
+        text += part.text;
+      }
+      if (part.inlineData) {
+        // Convert base64 to data URL
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        const dataUrl = `data:${mimeType};base64,${part.inlineData.data}`;
+        images.push({ url: dataUrl, alt: 'Generated image' });
+      }
+    }
+
+    res.json({ text, images });
+  } catch (error) {
+    console.error('Image generation error:', error);
+    res.json({ error: error.message });
+  }
+});
+
+// Upload image from URL/data URL
+app.post('/api/games/:game/images/from-url', async (req, res) => {
+  try {
+    const { url, name } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const imagesDir = path.join(gameDir, 'images');
+    await ensureDir(imagesDir);
+
+    let buffer;
+    if (url.startsWith('data:')) {
+      // Handle data URL
+      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        return res.status(400).json({ error: 'Invalid data URL' });
+      }
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      // Handle regular URL
+      const response = await fetch(url);
+      buffer = Buffer.from(await response.arrayBuffer());
+    }
+
+    const id = uuidv4();
+    const filename = `${id}.png`;
+    const filepath = path.join(imagesDir, filename);
+
+    // Convert to PNG and get metadata
+    const pngBuffer = await sharp(buffer).png().toBuffer();
+    const metadata = await sharp(pngBuffer).metadata();
+
+    // Save file
+    await fs.writeFile(filepath, pngBuffer);
+
+    const imageData = {
+      id,
+      name: name || `generated-${Date.now()}`,
+      filename,
+      width: metadata.width,
+      height: metadata.height,
+      createdAt: new Date().toISOString()
+    };
+
+    // Update game.json
+    const gameFile = path.join(gameDir, 'game.json');
+    let gameData;
+    try {
+      gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+    } catch {
+      gameData = { images: [], sounds: [], animations: [], objects: [] };
+    }
+    gameData.images = gameData.images || [];
+    gameData.images.push(imageData);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json(imageData);
+  } catch (error) {
+    console.error('Upload from URL error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ AI SOUND GENERATION ============
+
+// Generate sound effect with ElevenLabs
+app.post('/api/generate-sound', async (req, res) => {
+  try {
+    const { text, duration } = req.body;
+
+    // Check for API key
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        error: 'ElevenLabs API key not configured. Set ELEVENLABS_API_KEY environment variable.'
+      });
+    }
+
+    // Call ElevenLabs Sound Effects API
+    const response = await fetch(
+      'https://api.elevenlabs.io/v1/sound-generation',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey
+        },
+        body: JSON.stringify({
+          text,
+          duration_seconds: duration || null,
+          prompt_influence: 0.3
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.json({ error: `ElevenLabs API error: ${response.status} - ${errorText}` });
+    }
+
+    // Get the audio buffer
+    const audioBuffer = await response.arrayBuffer();
+    const base64Audio = Buffer.from(audioBuffer).toString('base64');
+    const dataUrl = `data:audio/mpeg;base64,${base64Audio}`;
+
+    res.json({ audioUrl: dataUrl });
+  } catch (error) {
+    console.error('Sound generation error:', error);
+    res.json({ error: error.message });
+  }
+});
+
+// Upload sound from URL/data URL
+app.post('/api/games/:game/sounds/from-url', async (req, res) => {
+  try {
+    const { url, name } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const soundsDir = path.join(gameDir, 'sounds');
+    await ensureDir(soundsDir);
+
+    let buffer;
+    let format = 'mp3';
+
+    if (url.startsWith('data:')) {
+      // Handle data URL
+      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        return res.status(400).json({ error: 'Invalid data URL' });
+      }
+      // Determine format from mime type
+      const mimeType = matches[1];
+      if (mimeType.includes('wav')) format = 'wav';
+      else if (mimeType.includes('ogg')) format = 'ogg';
+      else format = 'mp3';
+
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      // Handle regular URL
+      const response = await fetch(url);
+      buffer = Buffer.from(await response.arrayBuffer());
+    }
+
+    const id = uuidv4();
+    const filename = `${id}.${format}`;
+    const filepath = path.join(soundsDir, filename);
+
+    // Save file
+    await fs.writeFile(filepath, buffer);
+
+    const soundData = {
+      id,
+      name: name || `generated-${Date.now()}`,
+      filename,
+      format,
+      createdAt: new Date().toISOString()
+    };
+
+    // Update game.json
+    const gameFile = path.join(gameDir, 'game.json');
+    let gameData;
+    try {
+      gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+    } catch {
+      gameData = { images: [], sounds: [], animations: [], objects: [] };
+    }
+    gameData.sounds = gameData.sounds || [];
+    gameData.sounds.push(soundData);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json(soundData);
+  } catch (error) {
+    console.error('Upload sound from URL error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Studio API server running on http://localhost:${PORT}`);

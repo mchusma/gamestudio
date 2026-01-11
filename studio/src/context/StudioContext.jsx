@@ -128,16 +128,6 @@ export function StudioProvider({ children }) {
     }
   };
 
-  const createGame = async (name) => {
-    try {
-      await api.createGame(name);
-      await loadGames();
-      dispatch({ type: 'SET_CURRENT_GAME', payload: name });
-    } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: error.message });
-    }
-  };
-
   const selectGame = (name) => {
     dispatch({ type: 'SET_CURRENT_GAME', payload: name });
   };
@@ -161,6 +151,16 @@ export function StudioProvider({ children }) {
     }
   };
 
+  const uploadImageFromUrl = async (url, name) => {
+    try {
+      const image = await api.uploadImageFromUrl(state.currentGame, url, name);
+      dispatch({ type: 'ADD_IMAGE', payload: image });
+      return image;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
   const uploadSound = async (file, name) => {
     try {
       const sound = await api.uploadSound(state.currentGame, file, name);
@@ -175,6 +175,16 @@ export function StudioProvider({ children }) {
     try {
       await api.deleteSound(state.currentGame, id);
       dispatch({ type: 'DELETE_SOUND', payload: id });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
+  const uploadSoundFromUrl = async (url, name) => {
+    try {
+      const sound = await api.uploadSoundFromUrl(state.currentGame, url, name);
+      dispatch({ type: 'ADD_SOUND', payload: sound });
+      return sound;
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     }
@@ -243,11 +253,12 @@ export function StudioProvider({ children }) {
 
   const value = {
     ...state,
-    createGame,
     selectGame,
     uploadImage,
+    uploadImageFromUrl,
     deleteImage,
     uploadSound,
+    uploadSoundFromUrl,
     deleteSound,
     createAnimation,
     updateAnimation,

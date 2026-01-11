@@ -1,29 +1,33 @@
 import { useRef, useState } from 'react';
 import { useStudio } from '../context/StudioContext';
+import { AddSoundModal } from './AddSoundModal';
 
 export function SoundGallery() {
-  const { gameData, uploadSound, deleteSound, getSoundUrl } = useStudio();
-  const fileInputRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
+  const { gameData, uploadSound, uploadSoundFromUrl, deleteSound, getSoundUrl } = useStudio();
   const [playingId, setPlayingId] = useState(null);
+  const [selectedSound, setSelectedSound] = useState(null);
+  const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
   const audioRef = useRef(null);
 
-  const handleFileSelect = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  const sounds = gameData?.sounds || [];
 
-    setUploading(true);
-    for (const file of files) {
-      await uploadSound(file);
+  const filteredSounds = sounds.filter(sound =>
+    sound.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleDelete = async (e, sound) => {
+    e.stopPropagation();
+    if (confirm('Delete this sound?')) {
+      await deleteSound(sound.id);
+      if (selectedSound?.id === sound.id) {
+        setSelectedSound(null);
+      }
     }
-    setUploading(false);
-    e.target.value = '';
   };
 
-  const handleDelete = async (id) => {
-    if (confirm('Delete this sound?')) {
-      await deleteSound(id);
-    }
+  const handleSelect = (sound) => {
+    setSelectedSound(sound);
   };
 
   const handlePlay = (sound) => {
@@ -44,59 +48,108 @@ export function SoundGallery() {
     setPlayingId(sound.id);
   };
 
-  const sounds = gameData?.sounds || [];
-
   return (
-    <div className="content-panel">
-      <div className="panel-header">
-        <h2>Sounds</h2>
-        <div className="panel-actions">
-          <button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? 'Uploading...' : 'Upload Sound'}
+    <div className="image-gallery-container">
+      {/* Left column - List */}
+      <div className="image-list-column">
+        <div className="column-header">
+          <h3>Sounds</h3>
+          <button
+            className="small"
+            onClick={() => setShowAddModal(true)}
+          >
+            + Add
           </button>
+        </div>
+
+        <div className="list-search">
           <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            multiple
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+
+        <div className="image-list">
+          {filteredSounds.map((sound) => (
+            <div
+              key={sound.id}
+              className={`image-list-item ${selectedSound?.id === sound.id ? 'selected' : ''}`}
+              onClick={() => handleSelect(sound)}
+            >
+              <div className="image-list-thumb">
+                <span style={{ fontSize: '20px' }}>🔊</span>
+              </div>
+              <div className="image-list-info">
+                <span className="image-list-name">{sound.name}</span>
+                <span className="image-list-meta">.{sound.format}</span>
+              </div>
+              <button
+                className="delete-btn"
+                onClick={(e) => handleDelete(e, sound)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+
+          {sounds.length === 0 && (
+            <div className="empty-list">
+              <p>No sounds yet</p>
+              <p className="hint">Click + Add to upload</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {sounds.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">🔊</div>
-          <p>No sounds yet</p>
-          <p>Upload .wav, .mp3, or .ogg files</p>
-        </div>
-      ) : (
-        <div className="sound-list">
-          {sounds.map((sound) => (
-            <div key={sound.id} className="sound-item">
-              <span className="sound-item-icon">🔊</span>
-              <div className="sound-item-info">
-                <div className="sound-item-name">{sound.name}</div>
-                <div className="sound-item-format">.{sound.format}</div>
-              </div>
-              <div className="sound-item-actions">
-                <button
-                  className="secondary small"
-                  onClick={() => handlePlay(sound)}
-                >
-                  {playingId === sound.id ? '⏹ Stop' : '▶ Play'}
-                </button>
-                <button
-                  className="danger small"
-                  onClick={() => handleDelete(sound.id)}
-                >
-                  Delete
-                </button>
-              </div>
+      {/* Right column - Detail panel */}
+      {selectedSound && (
+        <div className="image-detail-column">
+          <div className="column-header">
+            <h3>Sound Details</h3>
+          </div>
+
+          <div className="detail-preview">
+            <span style={{ fontSize: '64px' }}>🔊</span>
+          </div>
+
+          <div className="detail-form">
+            <div className="form-group">
+              <label>Name</label>
+              <input
+                type="text"
+                value={selectedSound.name}
+                readOnly
+                placeholder="Sound name"
+              />
             </div>
-          ))}
+
+            <div className="form-group">
+              <label>Format</label>
+              <input
+                type="text"
+                value={`.${selectedSound.format}`}
+                readOnly
+              />
+            </div>
+
+            <button
+              onClick={() => handlePlay(selectedSound)}
+              style={{ marginTop: '8px' }}
+            >
+              {playingId === selectedSound.id ? '⏹ Stop' : '▶ Play'}
+            </button>
+          </div>
         </div>
+      )}
+
+      {showAddModal && (
+        <AddSoundModal
+          onClose={() => setShowAddModal(false)}
+          onUpload={uploadSound}
+          onUploadFromUrl={uploadSoundFromUrl}
+        />
       )}
     </div>
   );
