@@ -457,6 +457,254 @@ app.delete('/api/games/:game/animations/:id', async (req, res) => {
 // Objects are stored directly in game.json, so we just update the whole game data
 // The frontend will handle object manipulation and send the full objects array
 
+// ============ AI IMAGE GENERATION ============
+
+// Generate image with Gemini
+app.post('/api/generate-image', async (req, res) => {
+  try {
+    const { prompt, history } = req.body;
+
+    // Check for API key
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        error: 'Gemini API key not configured. Set GEMINI_API_KEY environment variable.'
+      });
+    }
+
+    // Call Gemini API for image generation
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            ...history.map(msg => ({
+              role: msg.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: msg.content }]
+            })),
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            responseModalities: ['Text', 'Image']
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.error) {
+      return res.json({ error: data.error.message || 'Gemini API error' });
+    }
+
+    // Parse response
+    const candidate = data.candidates?.[0];
+    if (!candidate) {
+      return res.json({ error: 'No response from Gemini' });
+    }
+
+    const parts = candidate.content?.parts || [];
+    let text = '';
+    const images = [];
+
+    for (const part of parts) {
+      if (part.text) {
+        text += part.text;
+      }
+      if (part.inlineData) {
+        // Convert base64 to data URL
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        const dataUrl = `data:${mimeType};base64,${part.inlineData.data}`;
+        images.push({ url: dataUrl, alt: 'Generated image' });
+      }
+    }
+
+    res.json({ text, images });
+  } catch (error) {
+    console.error('Image generation error:', error);
+    res.json({ error: error.message });
+  }
+});
+
+// Upload image from URL/data URL
+app.post('/api/games/:game/images/from-url', async (req, res) => {
+  try {
+    const { url, name } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const imagesDir = path.join(gameDir, 'images');
+    await ensureDir(imagesDir);
+
+    let buffer;
+    if (url.startsWith('data:')) {
+      // Handle data URL
+      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        return res.status(400).json({ error: 'Invalid data URL' });
+      }
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      // Handle regular URL
+      const response = await fetch(url);
+      buffer = Buffer.from(await response.arrayBuffer());
+    }
+
+    const id = uuidv4();
+    const filename = `${id}.png`;
+    const filepath = path.join(imagesDir, filename);
+
+    // Convert to PNG and get metadata
+    const pngBuffer = await sharp(buffer).png().toBuffer();
+    const metadata = await sharp(pngBuffer).metadata();
+
+    // Save file
+    await fs.writeFile(filepath, pngBuffer);
+
+    const imageData = {
+      id,
+      name: name || `generated-${Date.now()}`,
+      filename,
+      width: metadata.width,
+      height: metadata.height,
+      createdAt: new Date().toISOString()
+    };
+
+    // Update game.json
+    const gameFile = path.join(gameDir, 'game.json');
+    let gameData;
+    try {
+      gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+    } catch {
+      gameData = { images: [], sounds: [], animations: [], objects: [] };
+    }
+    gameData.images = gameData.images || [];
+    gameData.images.push(imageData);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json(imageData);
+  } catch (error) {
+    console.error('Upload from URL error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ AI SOUND GENERATION ============
+
+// Generate sound effect with ElevenLabs
+app.post('/api/generate-sound', async (req, res) => {
+  try {
+    const { text, duration } = req.body;
+
+    // Check for API key
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        error: 'ElevenLabs API key not configured. Set ELEVENLABS_API_KEY environment variable.'
+      });
+    }
+
+    // Call ElevenLabs Sound Effects API
+    const response = await fetch(
+      'https://api.elevenlabs.io/v1/sound-generation',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey
+        },
+        body: JSON.stringify({
+          text,
+          duration_seconds: duration || null,
+          prompt_influence: 0.3
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return res.json({ error: `ElevenLabs API error: ${response.status} - ${errorText}` });
+    }
+
+    // Get the audio buffer
+    const audioBuffer = await response.arrayBuffer();
+    const base64Audio = Buffer.from(audioBuffer).toString('base64');
+    const dataUrl = `data:audio/mpeg;base64,${base64Audio}`;
+
+    res.json({ audioUrl: dataUrl });
+  } catch (error) {
+    console.error('Sound generation error:', error);
+    res.json({ error: error.message });
+  }
+});
+
+// Upload sound from URL/data URL
+app.post('/api/games/:game/sounds/from-url', async (req, res) => {
+  try {
+    const { url, name } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const soundsDir = path.join(gameDir, 'sounds');
+    await ensureDir(soundsDir);
+
+    let buffer;
+    let format = 'mp3';
+
+    if (url.startsWith('data:')) {
+      // Handle data URL
+      const matches = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        return res.status(400).json({ error: 'Invalid data URL' });
+      }
+      // Determine format from mime type
+      const mimeType = matches[1];
+      if (mimeType.includes('wav')) format = 'wav';
+      else if (mimeType.includes('ogg')) format = 'ogg';
+      else format = 'mp3';
+
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      // Handle regular URL
+      const response = await fetch(url);
+      buffer = Buffer.from(await response.arrayBuffer());
+    }
+
+    const id = uuidv4();
+    const filename = `${id}.${format}`;
+    const filepath = path.join(soundsDir, filename);
+
+    // Save file
+    await fs.writeFile(filepath, buffer);
+
+    const soundData = {
+      id,
+      name: name || `generated-${Date.now()}`,
+      filename,
+      format,
+      createdAt: new Date().toISOString()
+    };
+
+    // Update game.json
+    const gameFile = path.join(gameDir, 'game.json');
+    let gameData;
+    try {
+      gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+    } catch {
+      gameData = { images: [], sounds: [], animations: [], objects: [] };
+    }
+    gameData.sounds = gameData.sounds || [];
+    gameData.sounds.push(soundData);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json(soundData);
+  } catch (error) {
+    console.error('Upload sound from URL error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Studio API server running on http://localhost:${PORT}`);
 });

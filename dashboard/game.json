@@ -9,30 +9,57 @@
       "width": 2816,
       "height": 1536,
       "createdAt": "2026-01-10T22:19:00.810Z"
+    },
+    {
+      "id": "5dfddc8b-00cb-4a99-be69-dc7e95ddd523",
+      "name": "HAPPY+GUEST+LOGO+-+pink",
+      "filename": "5dfddc8b-00cb-4a99-be69-dc7e95ddd523.png",
+      "width": 1050,
+      "height": 600,
+      "createdAt": "2026-01-10T22:42:23.858Z"
+    },
+    {
+      "id": "51c1d7f3-0616-4a48-95ee-0779303ecbb8",
+      "name": "HAPPY+GUEST+LOGO+-+pink",
+      "filename": "51c1d7f3-0616-4a48-95ee-0779303ecbb8.png",
+      "width": 1050,
+      "height": 600,
+      "createdAt": "2026-01-10T22:43:03.807Z"
     }
   ],
   "sounds": [],
   "animations": [
     {
-      "id": "86c47fc2-85e5-486e-b0ed-e5ed758720a1",
-      "name": "99",
-      "filename": "86c47fc2-85e5-486e-b0ed-e5ed758720a1.png",
-      "frameWidth": 1050,
-      "frameHeight": 600,
-      "frameCount": 1,
-      "frameDuration": 0.1,
+      "id": "7c6e5d42-138e-4a84-907e-6f7c4ed9f2d5",
+      "name": "Gemini_Generated_Image_kmcprnkmcprnkmcp",
+      "filename": "7c6e5d42-138e-4a84-907e-6f7c4ed9f2d5.png",
+      "frameWidth": 2816,
+      "frameHeight": 1536,
+      "frameCount": 2,
+      "frameDuration": 1,
       "loop": true,
       "sourceImages": [
-        "eb76b8ca-6ceb-40eb-bd7f-cebe549caedd"
+        "90444468-9168-4077-b809-b3de77d48c87",
+        "5dfddc8b-00cb-4a99-be69-dc7e95ddd523"
       ],
-      "createdAt": "2026-01-10T22:18:30.889Z"
+      "createdAt": "2026-01-10T22:42:24.318Z",
+      "updatedAt": "2026-01-10T22:42:28.112Z"
     }
   ],
   "objects": [
     {
       "id": "obj_1768079295269",
       "name": "test",
-      "states": [],
+      "states": [
+        {
+          "id": "state_1768086704096",
+          "name": "asdf",
+          "visualType": "animation",
+          "visualId": "7c6e5d42-138e-4a84-907e-6f7c4ed9f2d5",
+          "soundId": null,
+          "visual": "animation:7c6e5d42-138e-4a84-907e-6f7c4ed9f2d5"
+        }
+      ],
       "createdAt": "2026-01-10T21:08:15.269Z"
     }
   ]

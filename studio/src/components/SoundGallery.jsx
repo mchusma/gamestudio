@@ -1,13 +1,13 @@
 import { useRef, useState } from 'react';
 import { useStudio } from '../context/StudioContext';
+import { AddSoundModal } from './AddSoundModal';
 
 export function SoundGallery() {
-  const { gameData, uploadSound, deleteSound, getSoundUrl } = useStudio();
-  const fileInputRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
+  const { gameData, uploadSound, uploadSoundFromUrl, deleteSound, getSoundUrl } = useStudio();
   const [playingId, setPlayingId] = useState(null);
   const [selectedSound, setSelectedSound] = useState(null);
   const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
   const audioRef = useRef(null);
 
   const sounds = gameData?.sounds || [];
@@ -15,18 +15,6 @@ export function SoundGallery() {
   const filteredSounds = sounds.filter(sound =>
     sound.name.toLowerCase().includes(search.toLowerCase())
   );
-
-  const handleFileSelect = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    setUploading(true);
-    for (const file of files) {
-      await uploadSound(file);
-    }
-    setUploading(false);
-    e.target.value = '';
-  };
 
   const handleDelete = async (e, sound) => {
     e.stopPropagation();
@@ -68,19 +56,10 @@ export function SoundGallery() {
           <h3>Sounds</h3>
           <button
             className="small"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            onClick={() => setShowAddModal(true)}
           >
             + Add
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            multiple
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
         </div>
 
         <div className="list-search">
@@ -163,6 +142,14 @@ export function SoundGallery() {
             </button>
           </div>
         </div>
+      )}
+
+      {showAddModal && (
+        <AddSoundModal
+          onClose={() => setShowAddModal(false)}
+          onUpload={uploadSound}
+          onUploadFromUrl={uploadSoundFromUrl}
+        />
       )}
     </div>
   );

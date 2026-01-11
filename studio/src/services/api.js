@@ -50,6 +50,15 @@ export const api = {
     return res.json();
   },
 
+  async uploadImageFromUrl(game, url, name) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/images/from-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, name })
+    });
+    return res.json();
+  },
+
   // Sounds
   async uploadSound(game, file, name) {
     const formData = new FormData();
@@ -66,6 +75,15 @@ export const api = {
   async deleteSound(game, id) {
     const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/sounds/${id}`, {
       method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  async uploadSoundFromUrl(game, url, name) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/sounds/from-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, name })
     });
     return res.json();
   },
