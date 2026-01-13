@@ -153,7 +153,9 @@ app.get('/api/games/:game', async (req, res) => {
       images: gameData.images || [],
       sounds: gameData.sounds || [],
       animations: gameData.animations || [],
-      objects: gameData.objects || []
+      objects: gameData.objects || [],
+      tilesets: gameData.tilesets || [],
+      backgrounds: gameData.backgrounds || []
     };
 
     res.json(extendedData);
@@ -497,6 +499,156 @@ app.delete('/api/games/:game/animations/:id', async (req, res) => {
 
 // Objects are stored directly in game.json, so we just update the whole game data
 // The frontend will handle object manipulation and send the full objects array
+
+// ============ TILESETS ============
+
+// Create tileset from an existing image
+app.post('/api/games/:game/tilesets', async (req, res) => {
+  try {
+    const { name, imageId, tileWidth, tileHeight } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    // Find the source image
+    const sourceImage = gameData.images.find(i => i.id === imageId);
+    if (!sourceImage) {
+      return res.status(404).json({ error: 'Source image not found' });
+    }
+
+    // Calculate columns and rows
+    const columns = Math.floor(sourceImage.width / tileWidth);
+    const rows = Math.floor(sourceImage.height / tileHeight);
+    const tileCount = columns * rows;
+
+    const id = uuidv4();
+    const tilesetData = {
+      id,
+      name,
+      imageId,
+      tileWidth,
+      tileHeight,
+      columns,
+      rows,
+      tileCount,
+      createdAt: new Date().toISOString()
+    };
+
+    gameData.tilesets = gameData.tilesets || [];
+    gameData.tilesets.push(tilesetData);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json(tilesetData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete tileset
+app.delete('/api/games/:game/tilesets/:id', async (req, res) => {
+  try {
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    gameData.tilesets = (gameData.tilesets || []).filter(t => t.id !== req.params.id);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ BACKGROUNDS ============
+
+// Create background
+app.post('/api/games/:game/backgrounds', async (req, res) => {
+  try {
+    const { name, width, height, tilesetId } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    // Verify tileset exists
+    const tileset = (gameData.tilesets || []).find(t => t.id === tilesetId);
+    if (!tileset) {
+      return res.status(404).json({ error: 'Tileset not found' });
+    }
+
+    const id = uuidv4();
+    // Initialize with empty tiles (0 = no tile)
+    const emptyLayer = new Array(width * height).fill(0);
+
+    const backgroundData = {
+      id,
+      name,
+      width,
+      height,
+      tilesetId,
+      layers: [
+        {
+          id: uuidv4(),
+          name: 'Layer 1',
+          visible: true,
+          data: emptyLayer
+        }
+      ],
+      createdAt: new Date().toISOString()
+    };
+
+    gameData.backgrounds = gameData.backgrounds || [];
+    gameData.backgrounds.push(backgroundData);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json(backgroundData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update background (for saving tile data)
+app.put('/api/games/:game/backgrounds/:id', async (req, res) => {
+  try {
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    const bgIndex = (gameData.backgrounds || []).findIndex(b => b.id === req.params.id);
+    if (bgIndex === -1) {
+      return res.status(404).json({ error: 'Background not found' });
+    }
+
+    // Merge updates
+    gameData.backgrounds[bgIndex] = {
+      ...gameData.backgrounds[bgIndex],
+      ...req.body,
+      id: req.params.id, // Preserve ID
+      updatedAt: new Date().toISOString()
+    };
+
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+    res.json(gameData.backgrounds[bgIndex]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete background
+app.delete('/api/games/:game/backgrounds/:id', async (req, res) => {
+  try {
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    gameData.backgrounds = (gameData.backgrounds || []).filter(b => b.id !== req.params.id);
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // ============ AI IMAGE GENERATION ============
 

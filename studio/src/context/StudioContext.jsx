@@ -91,6 +91,48 @@ function studioReducer(state, action) {
           objects: action.payload
         }
       };
+    case 'ADD_TILESET':
+      return {
+        ...state,
+        gameData: {
+          ...state.gameData,
+          tilesets: [...(state.gameData.tilesets || []), action.payload]
+        }
+      };
+    case 'DELETE_TILESET':
+      return {
+        ...state,
+        gameData: {
+          ...state.gameData,
+          tilesets: (state.gameData.tilesets || []).filter(t => t.id !== action.payload)
+        }
+      };
+    case 'ADD_BACKGROUND':
+      return {
+        ...state,
+        gameData: {
+          ...state.gameData,
+          backgrounds: [...(state.gameData.backgrounds || []), action.payload]
+        }
+      };
+    case 'UPDATE_BACKGROUND':
+      return {
+        ...state,
+        gameData: {
+          ...state.gameData,
+          backgrounds: (state.gameData.backgrounds || []).map(b =>
+            b.id === action.payload.id ? action.payload : b
+          )
+        }
+      };
+    case 'DELETE_BACKGROUND':
+      return {
+        ...state,
+        gameData: {
+          ...state.gameData,
+          backgrounds: (state.gameData.backgrounds || []).filter(b => b.id !== action.payload)
+        }
+      };
     default:
       return state;
   }
@@ -253,6 +295,66 @@ export function StudioProvider({ children }) {
     }
   }, [state.currentGame, state.gameData]);
 
+  // Tilesets
+  const createTileset = async ({ name, imageId, tileWidth, tileHeight }) => {
+    try {
+      const tileset = await api.createTileset(state.currentGame, {
+        name,
+        imageId,
+        tileWidth,
+        tileHeight
+      });
+      dispatch({ type: 'ADD_TILESET', payload: tileset });
+      return tileset;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
+  const deleteTileset = async (id) => {
+    try {
+      await api.deleteTileset(state.currentGame, id);
+      dispatch({ type: 'DELETE_TILESET', payload: id });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
+  // Backgrounds
+  const createBackground = async ({ name, width, height, tilesetId }) => {
+    try {
+      const background = await api.createBackground(state.currentGame, {
+        name,
+        width,
+        height,
+        tilesetId
+      });
+      dispatch({ type: 'ADD_BACKGROUND', payload: background });
+      return background;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
+  const updateBackground = async (id, data) => {
+    try {
+      const background = await api.updateBackground(state.currentGame, id, data);
+      dispatch({ type: 'UPDATE_BACKGROUND', payload: background });
+      return background;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
+  const deleteBackground = async (id) => {
+    try {
+      await api.deleteBackground(state.currentGame, id);
+      dispatch({ type: 'DELETE_BACKGROUND', payload: id });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
   const getImageUrl = (filename) => {
     return api.getImageUrl(state.currentGame, filename);
   };
@@ -278,6 +380,11 @@ export function StudioProvider({ children }) {
     updateAnimation,
     deleteAnimation,
     saveObjects,
+    createTileset,
+    deleteTileset,
+    createBackground,
+    updateBackground,
+    deleteBackground,
     getImageUrl,
     getSoundUrl,
     getAnimationUrl

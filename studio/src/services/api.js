@@ -125,5 +125,48 @@ export const api = {
 
   getAnimationUrl(game, filename) {
     return `/assets/${encodeURIComponent(game)}/animations/${filename}`;
+  },
+
+  // Tilesets
+  async createTileset(game, { name, imageId, tileWidth, tileHeight }) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/tilesets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, imageId, tileWidth, tileHeight })
+    });
+    return res.json();
+  },
+
+  async deleteTileset(game, id) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/tilesets/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
+  },
+
+  // Backgrounds
+  async createBackground(game, { name, width, height, tilesetId }) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/backgrounds`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, width, height, tilesetId })
+    });
+    return res.json();
+  },
+
+  async updateBackground(game, id, data) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/backgrounds/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async deleteBackground(game, id) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/backgrounds/${id}`, {
+      method: 'DELETE'
+    });
+    return res.json();
   }
 };
