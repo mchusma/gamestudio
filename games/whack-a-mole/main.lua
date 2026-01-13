@@ -8,9 +8,9 @@ local WINDOW_HEIGHT = 600
 local HOLE_COUNT = 4
 local HOLE_Y = 400
 local HOLE_WIDTH = 100
-local HOLE_HEIGHT = 80
 
 local holes = {}
+local fonts = {}
 local player = {
     position = 1,  -- Current hole position (1-4)
     isWhacking = false,
@@ -26,6 +26,11 @@ local MOLE_VISIBLE_TIME = 1.2    -- How long a mole stays up
 function love.load()
     love.window.setTitle("Whack-a-Mole")
     love.window.setMode(WINDOW_WIDTH, WINDOW_HEIGHT)
+    math.randomseed(os.time())
+
+    -- Create fonts once
+    fonts.large = love.graphics.newFont(24)
+    fonts.small = love.graphics.newFont(16)
 
     -- Calculate hole positions (evenly spaced)
     local spacing = WINDOW_WIDTH / (HOLE_COUNT + 1)
@@ -186,10 +191,10 @@ function love.draw()
 
     -- UI
     love.graphics.setColor(1, 1, 1)
-    love.graphics.setFont(love.graphics.newFont(24))
+    love.graphics.setFont(fonts.large)
     love.graphics.print("Score: " .. player.score, 20, 20)
 
-    love.graphics.setFont(love.graphics.newFont(16))
+    love.graphics.setFont(fonts.small)
     love.graphics.print("Left/Right: Move    Space: Whack!", 20, 55)
     love.graphics.print("ESC: Quit", 20, 75)
 
