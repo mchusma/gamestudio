@@ -1,4 +1,23 @@
 {
   "name": "Coin Collector",
-  "description": "Collect coins to score points!"
+  "description": "Collect coins to score points!",
+  "images": [
+    {
+      "id": "99bf792d-3a08-4232-a22e-d678fe4226c2",
+      "name": "generated-1768540193870",
+      "filename": "99bf792d-3a08-4232-a22e-d678fe4226c2.png",
+      "width": 1024,
+      "height": 1024,
+      "createdAt": "2026-01-16T05:09:53.870Z"
+    }
+  ],
+  "sounds": [
+    {
+      "id": "6d372873-b0c9-49d7-81d6-33c18b92dae0",
+      "name": "coin pickup sound effect",
+      "filename": "6d372873-b0c9-49d7-81d6-33c18b92dae0.mp3",
+      "format": "mp3",
+      "createdAt": "2026-01-16T05:11:48.817Z"
+    }
+  ]
 }
