@@ -12,6 +12,7 @@ export function AddSoundModal({ onClose, onUpload, onUploadFromUrl }) {
   const [generatedSounds, setGeneratedSounds] = useState([]);
   const [error, setError] = useState(null);
   const [selectedSounds, setSelectedSounds] = useState(new Set());
+  const [savingSounds, setSavingSounds] = useState(new Set());
   const [playingUrl, setPlayingUrl] = useState(null);
   const audioRef = useRef(null);
 
@@ -115,6 +116,19 @@ export function AddSoundModal({ onClose, onUpload, onUploadFromUrl }) {
     onClose();
   };
 
+  const handleSaveSound = async (sound) => {
+    setSavingSounds(prev => new Set(prev).add(sound.id));
+    try {
+      await onUploadFromUrl(sound.url, sound.prompt.slice(0, 50));
+    } finally {
+      setSavingSounds(prev => {
+        const next = new Set(prev);
+        next.delete(sound.id);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal add-image-modal" onClick={e => e.stopPropagation()}>
@@ -198,6 +212,19 @@ export function AddSoundModal({ onClose, onUpload, onUploadFromUrl }) {
                         </div>
                         <div className="sound-item-info">
                           <span className="sound-item-prompt">{sound.prompt}</span>
+                        </div>
+                        <div className="sound-item-actions">
+                          <button
+                            className="sound-action-btn save-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveSound(sound);
+                            }}
+                            disabled={savingSounds.has(sound.id)}
+                            title="Save to project"
+                          >
+                            {savingSounds.has(sound.id) ? '...' : '💾'}
+                          </button>
                         </div>
                         <div className="sound-select-indicator">
                           {selectedSounds.has(sound.id) ? '✓' : ''}

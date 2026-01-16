@@ -10,6 +10,7 @@ export function AddImageModal({ onClose, onUpload, onUploadFromUrl }) {
   const [inputText, setInputText] = useState('');
   const [generating, setGenerating] = useState(false);
   const [selectedImages, setSelectedImages] = useState(new Set());
+  const [savingImages, setSavingImages] = useState(new Set());
   const messagesEndRef = useRef(null);
 
   const handleFileSelect = async (e) => {
@@ -103,6 +104,19 @@ export function AddImageModal({ onClose, onUpload, onUploadFromUrl }) {
     onClose();
   };
 
+  const handleSaveImage = async (imageUrl) => {
+    setSavingImages(prev => new Set(prev).add(imageUrl));
+    try {
+      await onUploadFromUrl(imageUrl);
+    } finally {
+      setSavingImages(prev => {
+        const next = new Set(prev);
+        next.delete(imageUrl);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal add-image-modal" onClick={e => e.stopPropagation()}>
@@ -177,10 +191,26 @@ export function AddImageModal({ onClose, onUpload, onUploadFromUrl }) {
                                   <div
                                     key={j}
                                     className={`generated-image ${selectedImages.has(img.url) ? 'selected' : ''}`}
-                                    onClick={() => toggleImageSelection(img.url)}
                                   >
-                                    <img src={img.url} alt={img.alt || 'Generated image'} />
-                                    <div className="image-select-indicator">
+                                    <img
+                                      src={img.url}
+                                      alt={img.alt || 'Generated image'}
+                                      onClick={() => toggleImageSelection(img.url)}
+                                    />
+                                    <div className="image-actions">
+                                      <button
+                                        className="image-action-btn save-btn"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSaveImage(img.url);
+                                        }}
+                                        disabled={savingImages.has(img.url)}
+                                        title="Save to project"
+                                      >
+                                        {savingImages.has(img.url) ? '...' : '💾'}
+                                      </button>
+                                    </div>
+                                    <div className="image-select-indicator" onClick={() => toggleImageSelection(img.url)}>
                                       {selectedImages.has(img.url) ? '✓' : ''}
                                     </div>
                                   </div>
