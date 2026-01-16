@@ -1,119 +1,27 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStudio } from '../context/StudioContext';
+import { api } from '../services/api';
 
-// Tile palette showing all tiles from a tileset
-function TilePalette({ tileset, selectedTile, onSelectTile, getImageUrl }) {
+// Background preview canvas
+function BackgroundPreview({ background, tileset, getImageUrl }) {
   const { gameData } = useStudio();
   const canvasRef = useRef(null);
-  const [hoveredTile, setHoveredTile] = useState(null);
-
-  const sourceImage = gameData?.images?.find(i => i.id === tileset?.imageId);
-
-  useEffect(() => {
-    if (!canvasRef.current || !sourceImage || !tileset) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.src = getImageUrl(sourceImage.filename);
-
-    img.onload = () => {
-      canvas.width = tileset.columns * tileset.tileWidth;
-      canvas.height = tileset.rows * tileset.tileHeight;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, 0, 0);
-
-      // Draw grid
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 1;
-      for (let x = 0; x <= tileset.columns; x++) {
-        ctx.beginPath();
-        ctx.moveTo(x * tileset.tileWidth, 0);
-        ctx.lineTo(x * tileset.tileWidth, canvas.height);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= tileset.rows; y++) {
-        ctx.beginPath();
-        ctx.moveTo(0, y * tileset.tileHeight);
-        ctx.lineTo(canvas.width, y * tileset.tileHeight);
-        ctx.stroke();
-      }
-
-      // Highlight selected tile
-      if (selectedTile !== null && selectedTile > 0) {
-        const tileX = (selectedTile - 1) % tileset.columns;
-        const tileY = Math.floor((selectedTile - 1) / tileset.columns);
-        ctx.strokeStyle = '#4a9eff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(
-          tileX * tileset.tileWidth + 1,
-          tileY * tileset.tileHeight + 1,
-          tileset.tileWidth - 2,
-          tileset.tileHeight - 2
-        );
-      }
-    };
-  }, [tileset, sourceImage, selectedTile, getImageUrl]);
-
-  const handleClick = (e) => {
-    if (!tileset) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scaleX = canvasRef.current.width / rect.width;
-    const scaleY = canvasRef.current.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    const tileX = Math.floor(x / tileset.tileWidth);
-    const tileY = Math.floor(y / tileset.tileHeight);
-    const tileIndex = tileY * tileset.columns + tileX + 1; // 1-indexed, 0 = empty
-    onSelectTile(tileIndex);
-  };
-
-  if (!tileset || !sourceImage) {
-    return <div className="tile-palette-empty">Select a tileset</div>;
-  }
-
-  return (
-    <div className="tile-palette">
-      <div className="tile-palette-header">
-        <span>Tile: {selectedTile || 'None (eraser)'}</span>
-        <button className="small secondary" onClick={() => onSelectTile(0)}>
-          Eraser
-        </button>
-      </div>
-      <div className="tile-palette-canvas-container">
-        <canvas
-          ref={canvasRef}
-          onClick={handleClick}
-          style={{ cursor: 'pointer', maxWidth: '100%' }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// Main tile editor canvas
-function TileEditor({ background, tileset, selectedTile, selectedLayerId, onUpdateBackground, getImageUrl }) {
-  const { gameData } = useStudio();
-  const canvasRef = useRef(null);
-  const [isPainting, setIsPainting] = useState(false);
   const tilesetImageRef = useRef(null);
 
   const sourceImage = gameData?.images?.find(i => i.id === tileset?.imageId);
-  const currentLayer = background?.layers?.find(l => l.id === selectedLayerId);
 
-  // Load tileset image
   useEffect(() => {
-    if (!sourceImage) return;
+    if (!sourceImage || !tileset) return;
     const img = new Image();
     img.src = getImageUrl(sourceImage.filename);
     img.onload = () => {
       tilesetImageRef.current = img;
       drawCanvas();
     };
-  }, [sourceImage, getImageUrl]);
+  }, [sourceImage, tileset, getImageUrl]);
 
   const drawCanvas = useCallback(() => {
-    if (!canvasRef.current || !background || !tileset) return;
+    if (!canvasRef.current || !background || !tileset || !tilesetImageRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -137,7 +45,7 @@ function TileEditor({ background, tileset, selectedTile, selectedLayerId, onUpda
     }
 
     // Draw all visible layers
-    if (tilesetImageRef.current && background.layers) {
+    if (background.layers) {
       for (const layer of background.layers) {
         if (!layer.visible) continue;
         for (let y = 0; y < background.height; y++) {
@@ -157,85 +65,55 @@ function TileEditor({ background, tileset, selectedTile, selectedLayerId, onUpda
         }
       }
     }
-
-    // Draw grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= background.width; x++) {
-      ctx.beginPath();
-      ctx.moveTo(x * tileset.tileWidth, 0);
-      ctx.lineTo(x * tileset.tileWidth, pixelHeight);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= background.height; y++) {
-      ctx.beginPath();
-      ctx.moveTo(0, y * tileset.tileHeight);
-      ctx.lineTo(pixelWidth, y * tileset.tileHeight);
-      ctx.stroke();
-    }
   }, [background, tileset]);
 
   useEffect(() => {
-    drawCanvas();
+    if (tilesetImageRef.current) {
+      drawCanvas();
+    }
   }, [drawCanvas, background?.layers]);
-
-  const paintTile = (e) => {
-    if (!background || !tileset || !currentLayer) return;
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scaleX = canvasRef.current.width / rect.width;
-    const scaleY = canvasRef.current.height / rect.height;
-    const x = Math.floor(((e.clientX - rect.left) * scaleX) / tileset.tileWidth);
-    const y = Math.floor(((e.clientY - rect.top) * scaleY) / tileset.tileHeight);
-
-    if (x < 0 || x >= background.width || y < 0 || y >= background.height) return;
-
-    const index = y * background.width + x;
-    if (currentLayer.data[index] === selectedTile) return;
-
-    const newData = [...currentLayer.data];
-    newData[index] = selectedTile;
-
-    const updatedLayers = background.layers.map(l =>
-      l.id === selectedLayerId ? { ...l, data: newData } : l
-    );
-
-    onUpdateBackground({ ...background, layers: updatedLayers });
-  };
-
-  const handleMouseDown = (e) => {
-    setIsPainting(true);
-    paintTile(e);
-  };
-
-  const handleMouseMove = (e) => {
-    if (isPainting) paintTile(e);
-  };
-
-  const handleMouseUp = () => {
-    setIsPainting(false);
-  };
 
   if (!background || !tileset) {
     return (
-      <div className="tile-editor-empty">
-        Select a background to edit
+      <div className="background-preview-empty">
+        <p>No background selected</p>
+        <p className="hint">Use the chat to create one</p>
       </div>
     );
   }
 
   return (
-    <div className="tile-editor">
-      <div className="tile-editor-canvas-container">
+    <div className="background-preview">
+      <div className="background-preview-header">
+        <span>{background.name}</span>
+        <span className="meta">{background.width}x{background.height} tiles</span>
+      </div>
+      <div className="background-preview-canvas">
         <canvas
           ref={canvasRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          style={{ cursor: 'crosshair', maxWidth: '100%', imageRendering: 'pixelated' }}
+          style={{ maxWidth: '100%', maxHeight: '100%', imageRendering: 'pixelated' }}
         />
       </div>
+    </div>
+  );
+}
+
+// Tileset thumbnail
+function TilesetThumb({ tileset, getImageUrl, onClick, selected }) {
+  const { gameData } = useStudio();
+  const sourceImage = gameData?.images?.find(i => i.id === tileset?.imageId);
+
+  return (
+    <div
+      className={`tileset-thumb ${selected ? 'selected' : ''}`}
+      onClick={onClick}
+    >
+      {sourceImage ? (
+        <img src={getImageUrl(sourceImage.filename)} alt={tileset.name} />
+      ) : (
+        <div className="tileset-thumb-placeholder">?</div>
+      )}
+      <span>{tileset.name}</span>
     </div>
   );
 }
@@ -243,353 +121,367 @@ function TileEditor({ background, tileset, selectedTile, selectedLayerId, onUpda
 export function BackgroundPanel() {
   const {
     gameData,
+    currentGame,
     createTileset,
     deleteTileset,
     createBackground,
     updateBackground,
     deleteBackground,
+    uploadImageFromUrl,
     getImageUrl
   } = useStudio();
 
-  const [selectedTilesetId, setSelectedTilesetId] = useState(null);
+  // Chat state
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  // Selection state
   const [selectedBackgroundId, setSelectedBackgroundId] = useState(null);
-  const [selectedLayerId, setSelectedLayerId] = useState(null);
-  const [selectedTile, setSelectedTile] = useState(1);
-
-  // New tileset form
-  const [showNewTileset, setShowNewTileset] = useState(false);
-  const [newTilesetName, setNewTilesetName] = useState('');
-  const [newTilesetImageId, setNewTilesetImageId] = useState('');
-  const [newTilesetTileSize, setNewTilesetTileSize] = useState(32);
-
-  // New background form
-  const [showNewBackground, setShowNewBackground] = useState(false);
-  const [newBackgroundName, setNewBackgroundName] = useState('');
-  const [newBackgroundWidth, setNewBackgroundWidth] = useState(20);
-  const [newBackgroundHeight, setNewBackgroundHeight] = useState(15);
+  const [selectedTilesetId, setSelectedTilesetId] = useState(null);
 
   const tilesets = gameData?.tilesets || [];
   const backgrounds = gameData?.backgrounds || [];
-  const images = gameData?.images || [];
-
-  const selectedTileset = tilesets.find(t => t.id === selectedTilesetId);
   const selectedBackground = backgrounds.find(b => b.id === selectedBackgroundId);
-  const backgroundTileset = selectedBackground
+  const selectedTileset = selectedBackground
     ? tilesets.find(t => t.id === selectedBackground.tilesetId)
-    : null;
+    : tilesets.find(t => t.id === selectedTilesetId);
 
-  // Auto-select first layer when background changes
+  // Auto-select first background
   useEffect(() => {
-    if (selectedBackground?.layers?.length > 0 && !selectedLayerId) {
-      setSelectedLayerId(selectedBackground.layers[0].id);
+    if (!selectedBackgroundId && backgrounds.length > 0) {
+      setSelectedBackgroundId(backgrounds[0].id);
     }
-  }, [selectedBackground, selectedLayerId]);
+  }, [backgrounds, selectedBackgroundId]);
 
-  const handleCreateTileset = async () => {
-    if (!newTilesetName.trim() || !newTilesetImageId) return;
-    const tileset = await createTileset({
-      name: newTilesetName.trim(),
-      imageId: newTilesetImageId,
-      tileWidth: newTilesetTileSize,
-      tileHeight: newTilesetTileSize
-    });
-    if (tileset) {
-      setSelectedTilesetId(tileset.id);
-      setShowNewTileset(false);
-      setNewTilesetName('');
-      setNewTilesetImageId('');
-    }
-  };
+  const handleSendMessage = async () => {
+    if (!inputText.trim() || generating) return;
 
-  const handleCreateBackground = async () => {
-    if (!newBackgroundName.trim() || !selectedTilesetId) return;
-    const background = await createBackground({
-      name: newBackgroundName.trim(),
-      width: newBackgroundWidth,
-      height: newBackgroundHeight,
-      tilesetId: selectedTilesetId
-    });
-    if (background) {
-      setSelectedBackgroundId(background.id);
-      setSelectedLayerId(background.layers[0]?.id);
-      setShowNewBackground(false);
-      setNewBackgroundName('');
-    }
-  };
+    const userMessage = { role: 'user', content: inputText };
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
+    setGenerating(true);
 
-  const handleDeleteTileset = async (id) => {
-    if (confirm('Delete this tileset? Backgrounds using it will break.')) {
-      await deleteTileset(id);
-      if (selectedTilesetId === id) setSelectedTilesetId(null);
-    }
-  };
+    try {
+      const response = await api.generateBackground(currentGame, {
+        prompt: inputText,
+        history: messages,
+        currentBackground: selectedBackground,
+        currentTileset: selectedTileset
+      });
 
-  const handleDeleteBackground = async (id) => {
-    if (confirm('Delete this background?')) {
-      await deleteBackground(id);
-      if (selectedBackgroundId === id) {
-        setSelectedBackgroundId(null);
-        setSelectedLayerId(null);
+      if (response.error) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: response.error,
+          isError: true
+        }]);
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: response.text || '',
+          images: response.images || [],
+          tileData: response.tileData
+        }]);
       }
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Failed to connect to the AI service.',
+        isError: true
+      }]);
+    }
+
+    setGenerating(false);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   };
 
-  const handleUpdateBackground = async (updated) => {
-    await updateBackground(updated.id, updated);
+  // Use generated tileset image
+  const handleUseTileset = async (imageUrl, tileSize = 32) => {
+    try {
+      // Upload the image
+      const image = await uploadImageFromUrl(imageUrl, `tileset-${Date.now()}`);
+      if (!image) return;
+
+      // Create tileset from it
+      const tileset = await createTileset({
+        name: `Tileset ${tilesets.length + 1}`,
+        imageId: image.id,
+        tileWidth: tileSize,
+        tileHeight: tileSize
+      });
+
+      if (tileset) {
+        setSelectedTilesetId(tileset.id);
+        setMessages(prev => [...prev, {
+          role: 'system',
+          content: `Created tileset "${tileset.name}" with ${tileset.tileCount} tiles.`
+        }]);
+      }
+    } catch (error) {
+      console.error('Failed to create tileset:', error);
+    }
   };
 
-  const addLayer = async () => {
-    if (!selectedBackground) return;
-    const newLayer = {
-      id: `layer_${Date.now()}`,
-      name: `Layer ${selectedBackground.layers.length + 1}`,
-      visible: true,
-      data: new Array(selectedBackground.width * selectedBackground.height).fill(0)
-    };
-    await handleUpdateBackground({
-      ...selectedBackground,
-      layers: [...selectedBackground.layers, newLayer]
-    });
-    setSelectedLayerId(newLayer.id);
+  // Apply tile data from AI response
+  const handleApplyTileData = async (tileData) => {
+    if (!selectedBackground || !tileData) return;
+
+    const layerName = tileData.layer || 'Layer 1';
+    const layer = selectedBackground.layers.find(l => l.name === layerName);
+
+    if (layer && tileData.data) {
+      const updatedLayers = selectedBackground.layers.map(l =>
+        l.name === layerName ? { ...l, data: tileData.data } : l
+      );
+      await updateBackground(selectedBackground.id, {
+        ...selectedBackground,
+        layers: updatedLayers
+      });
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: `Applied tile data to ${layerName}.`
+      }]);
+    }
   };
 
-  const toggleLayerVisibility = async (layerId) => {
-    if (!selectedBackground) return;
-    await handleUpdateBackground({
-      ...selectedBackground,
-      layers: selectedBackground.layers.map(l =>
-        l.id === layerId ? { ...l, visible: !l.visible } : l
-      )
-    });
-  };
+  // Quick create background
+  const handleQuickCreate = async () => {
+    if (tilesets.length === 0) {
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: 'Create a tileset first by asking me to generate one!'
+      }]);
+      return;
+    }
 
-  const deleteLayer = async (layerId) => {
-    if (!selectedBackground || selectedBackground.layers.length <= 1) return;
-    if (!confirm('Delete this layer?')) return;
-
-    const newLayers = selectedBackground.layers.filter(l => l.id !== layerId);
-    await handleUpdateBackground({
-      ...selectedBackground,
-      layers: newLayers
+    const bg = await createBackground({
+      name: `Background ${backgrounds.length + 1}`,
+      width: 20,
+      height: 15,
+      tilesetId: selectedTilesetId || tilesets[0].id
     });
-    if (selectedLayerId === layerId) {
-      setSelectedLayerId(newLayers[0]?.id);
+
+    if (bg) {
+      setSelectedBackgroundId(bg.id);
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: `Created background "${bg.name}" (20x15 tiles).`
+      }]);
     }
   };
 
   return (
-    <div className="background-panel-container">
-      {/* Left column - Tilesets */}
-      <div className="tileset-column">
-        <div className="column-header">
-          <h3>Tilesets</h3>
-          <button className="small" onClick={() => setShowNewTileset(true)}>+ Add</button>
+    <div className="background-panel-chat">
+      {/* Left side - Chat interface */}
+      <div className="background-chat-column">
+        <div className="chat-header">
+          <h3>Background Designer</h3>
         </div>
 
-        {showNewTileset && (
-          <div className="inline-form">
-            <input
-              type="text"
-              value={newTilesetName}
-              onChange={(e) => setNewTilesetName(e.target.value)}
-              placeholder="Tileset name..."
-              autoFocus
-            />
-            <select
-              value={newTilesetImageId}
-              onChange={(e) => setNewTilesetImageId(e.target.value)}
-            >
-              <option value="">Select image...</option>
-              {images.map(img => (
-                <option key={img.id} value={img.id}>{img.name}</option>
-              ))}
-            </select>
-            <div className="form-row-inline">
-              <label>Tile size:</label>
-              <input
-                type="number"
-                value={newTilesetTileSize}
-                onChange={(e) => setNewTilesetTileSize(parseInt(e.target.value) || 32)}
-                style={{ width: '60px' }}
-              />
-            </div>
-            <div className="button-row">
-              <button className="small" onClick={handleCreateTileset}>Create</button>
-              <button className="small secondary" onClick={() => setShowNewTileset(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        <div className="tileset-list">
-          {tilesets.map(tileset => (
-            <div
-              key={tileset.id}
-              className={`tileset-list-item ${selectedTilesetId === tileset.id ? 'selected' : ''}`}
-              onClick={() => setSelectedTilesetId(tileset.id)}
-            >
-              <div className="tileset-list-info">
-                <span className="tileset-list-name">{tileset.name}</span>
-                <span className="tileset-list-meta">
-                  {tileset.tileWidth}x{tileset.tileHeight} ({tileset.tileCount} tiles)
-                </span>
+        <div className="chat-messages">
+          {messages.length === 0 && (
+            <div className="chat-placeholder">
+              <div className="chat-placeholder-icon">🎨</div>
+              <p>Describe the background you want to create</p>
+              <p className="hint">I can generate tileset images and arrange tiles for you</p>
+              <div className="chat-suggestions">
+                <button onClick={() => setInputText('Create a forest tileset with grass, trees, and paths')}>
+                  Forest tileset
+                </button>
+                <button onClick={() => setInputText('Create a dungeon tileset with stone walls and floors')}>
+                  Dungeon tileset
+                </button>
+                <button onClick={() => setInputText('Create a simple platformer tileset')}>
+                  Platformer tileset
+                </button>
               </div>
-              <button
-                className="delete-btn"
-                onClick={(e) => { e.stopPropagation(); handleDeleteTileset(tileset.id); }}
-              >
-                x
-              </button>
-            </div>
-          ))}
-          {tilesets.length === 0 && (
-            <div className="empty-list">
-              <p>No tilesets yet</p>
-              <p className="hint">Upload an image first, then create a tileset from it</p>
             </div>
           )}
-        </div>
 
-        {selectedTileset && (
-          <TilePalette
-            tileset={selectedTileset}
-            selectedTile={selectedTile}
-            onSelectTile={setSelectedTile}
-            getImageUrl={getImageUrl}
-          />
-        )}
-      </div>
-
-      {/* Middle column - Backgrounds + Layers */}
-      <div className="background-list-column">
-        <div className="column-header">
-          <h3>Backgrounds</h3>
-          <button
-            className="small"
-            onClick={() => setShowNewBackground(true)}
-            disabled={tilesets.length === 0}
-          >
-            + Add
-          </button>
-        </div>
-
-        {showNewBackground && (
-          <div className="inline-form">
-            <input
-              type="text"
-              value={newBackgroundName}
-              onChange={(e) => setNewBackgroundName(e.target.value)}
-              placeholder="Background name..."
-              autoFocus
-            />
-            <div className="form-row-inline">
-              <label>Size:</label>
-              <input
-                type="number"
-                value={newBackgroundWidth}
-                onChange={(e) => setNewBackgroundWidth(parseInt(e.target.value) || 20)}
-                style={{ width: '50px' }}
-              />
-              <span>x</span>
-              <input
-                type="number"
-                value={newBackgroundHeight}
-                onChange={(e) => setNewBackgroundHeight(parseInt(e.target.value) || 15)}
-                style={{ width: '50px' }}
-              />
-              <span>tiles</span>
-            </div>
-            <div className="button-row">
-              <button className="small" onClick={handleCreateBackground}>Create</button>
-              <button className="small secondary" onClick={() => setShowNewBackground(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        <div className="background-list">
-          {backgrounds.map(bg => (
-            <div
-              key={bg.id}
-              className={`background-list-item ${selectedBackgroundId === bg.id ? 'selected' : ''}`}
-              onClick={() => {
-                setSelectedBackgroundId(bg.id);
-                setSelectedLayerId(bg.layers[0]?.id);
-                // Also select the tileset this background uses
-                setSelectedTilesetId(bg.tilesetId);
-              }}
-            >
-              <div className="background-list-info">
-                <span className="background-list-name">{bg.name}</span>
-                <span className="background-list-meta">
-                  {bg.width}x{bg.height} | {bg.layers.length} layers
-                </span>
-              </div>
-              <button
-                className="delete-btn"
-                onClick={(e) => { e.stopPropagation(); handleDeleteBackground(bg.id); }}
-              >
-                x
-              </button>
-            </div>
-          ))}
-          {backgrounds.length === 0 && (
-            <div className="empty-list">
-              <p>No backgrounds yet</p>
-              <p className="hint">Create a tileset first</p>
-            </div>
-          )}
-        </div>
-
-        {/* Layers section */}
-        {selectedBackground && (
-          <div className="layers-section">
-            <div className="column-header">
-              <h3>Layers</h3>
-              <button className="small" onClick={addLayer}>+ Add</button>
-            </div>
-            <div className="layer-list">
-              {selectedBackground.layers.map((layer, index) => (
-                <div
-                  key={layer.id}
-                  className={`layer-list-item ${selectedLayerId === layer.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedLayerId(layer.id)}
-                >
-                  <button
-                    className="visibility-btn"
-                    onClick={(e) => { e.stopPropagation(); toggleLayerVisibility(layer.id); }}
-                  >
-                    {layer.visible ? '👁' : '○'}
-                  </button>
-                  <span className="layer-name">{layer.name}</span>
-                  {selectedBackground.layers.length > 1 && (
-                    <button
-                      className="delete-btn"
-                      onClick={(e) => { e.stopPropagation(); deleteLayer(layer.id); }}
-                    >
-                      x
-                    </button>
+          {messages.map((msg, i) => (
+            <div key={i} className={`chat-message ${msg.role}`}>
+              {msg.role === 'user' ? (
+                <div className="message-content user-message">
+                  {msg.content}
+                </div>
+              ) : msg.role === 'system' ? (
+                <div className="message-content system-message">
+                  {msg.content}
+                </div>
+              ) : (
+                <div className="message-content assistant-message">
+                  {msg.isError ? (
+                    <span className="error-text">{msg.content}</span>
+                  ) : (
+                    <>
+                      {msg.content && <p>{msg.content}</p>}
+                      {msg.images && msg.images.length > 0 && (
+                        <div className="generated-tilesets">
+                          {msg.images.map((img, j) => (
+                            <div key={j} className="generated-tileset-item">
+                              <img src={img.url} alt={img.alt || 'Generated tileset'} />
+                              <div className="tileset-actions">
+                                <button
+                                  className="small"
+                                  onClick={() => handleUseTileset(img.url, 32)}
+                                >
+                                  Use as 32px tileset
+                                </button>
+                                <button
+                                  className="small secondary"
+                                  onClick={() => handleUseTileset(img.url, 16)}
+                                >
+                                  16px
+                                </button>
+                                <button
+                                  className="small secondary"
+                                  onClick={() => handleUseTileset(img.url, 64)}
+                                >
+                                  64px
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {msg.tileData && (
+                        <div className="tile-data-actions">
+                          <p className="hint">Tile arrangement ready</p>
+                          <button
+                            className="small"
+                            onClick={() => handleApplyTileData(msg.tileData)}
+                            disabled={!selectedBackground}
+                          >
+                            Apply to background
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
+          ))}
+
+          {generating && (
+            <div className="chat-message assistant">
+              <div className="message-content assistant-message">
+                <span className="generating-indicator">Generating...</span>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="chat-input-area">
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Describe the background you want..."
+            rows={2}
+            disabled={generating}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={!inputText.trim() || generating}
+          >
+            Send
+          </button>
+        </div>
       </div>
 
-      {/* Right column - Tile Editor */}
-      <div className="tile-editor-column">
-        <div className="column-header">
-          <h3>
-            {selectedBackground ? `Editing: ${selectedBackground.name}` : 'Tile Editor'}
-          </h3>
+      {/* Right side - Preview + Assets */}
+      <div className="background-preview-column">
+        {/* Tilesets section */}
+        <div className="tilesets-section">
+          <div className="section-header">
+            <h4>Tilesets</h4>
+          </div>
+          <div className="tilesets-grid">
+            {tilesets.map(ts => (
+              <TilesetThumb
+                key={ts.id}
+                tileset={ts}
+                getImageUrl={getImageUrl}
+                selected={selectedTilesetId === ts.id || selectedTileset?.id === ts.id}
+                onClick={() => setSelectedTilesetId(ts.id)}
+              />
+            ))}
+            {tilesets.length === 0 && (
+              <div className="empty-hint">
+                Ask me to generate a tileset
+              </div>
+            )}
+          </div>
         </div>
-        <TileEditor
-          background={selectedBackground}
-          tileset={backgroundTileset}
-          selectedTile={selectedTile}
-          selectedLayerId={selectedLayerId}
-          onUpdateBackground={handleUpdateBackground}
-          getImageUrl={getImageUrl}
-        />
+
+        {/* Backgrounds section */}
+        <div className="backgrounds-section">
+          <div className="section-header">
+            <h4>Backgrounds</h4>
+            <button
+              className="small"
+              onClick={handleQuickCreate}
+              disabled={tilesets.length === 0}
+            >
+              + New
+            </button>
+          </div>
+          <div className="backgrounds-list">
+            {backgrounds.map(bg => (
+              <div
+                key={bg.id}
+                className={`background-item ${selectedBackgroundId === bg.id ? 'selected' : ''}`}
+                onClick={() => setSelectedBackgroundId(bg.id)}
+              >
+                <span className="bg-name">{bg.name}</span>
+                <span className="bg-size">{bg.width}x{bg.height}</span>
+                <button
+                  className="delete-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm('Delete this background?')) {
+                      deleteBackground(bg.id);
+                      if (selectedBackgroundId === bg.id) {
+                        setSelectedBackgroundId(null);
+                      }
+                    }
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {backgrounds.length === 0 && (
+              <div className="empty-hint">
+                {tilesets.length === 0
+                  ? 'Generate a tileset first'
+                  : 'Click + New to create a background'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className="preview-section">
+          <BackgroundPreview
+            background={selectedBackground}
+            tileset={selectedTileset}
+            getImageUrl={getImageUrl}
+          />
+        </div>
       </div>
     </div>
   );

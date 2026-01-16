@@ -168,5 +168,14 @@ export const api = {
       method: 'DELETE'
     });
     return res.json();
+  },
+
+  async generateBackground(game, { prompt, history, currentBackground, currentTileset }) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/backgrounds/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, history, currentBackground, currentTileset })
+    });
+    return res.json();
   }
 };

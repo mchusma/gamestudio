@@ -1757,160 +1757,211 @@ button.small {
   color: var(--text-secondary);
 }
 
-/* Background Panel */
-.background-panel-container {
+/* Background Panel - Chat-centric layout */
+.background-panel-chat {
   display: flex;
   height: 100%;
 }
 
-.tileset-column {
-  width: 280px;
-  background: var(--bg-secondary);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border);
-}
-
-.background-list-column {
-  width: 240px;
-  background: var(--bg-secondary);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border);
-}
-
-.tile-editor-column {
+.background-chat-column {
   flex: 1;
-  background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  border-right: 1px solid var(--border);
+  min-width: 400px;
 }
 
-.tileset-list,
-.background-list {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 200px;
-}
-
-.tileset-list-item,
-.background-list-item {
+.background-preview-column {
+  width: 320px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  cursor: pointer;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.chat-header {
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
+  background: var(--bg-secondary);
 }
 
-.tileset-list-item:hover,
-.background-list-item:hover {
-  background: rgba(255, 255, 255, 0.03);
+.chat-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.tileset-list-item.selected,
-.background-list-item.selected {
-  background: rgba(74, 158, 255, 0.12);
+.chat-placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
 }
 
-.tileset-list-info,
-.background-list-info {
-  flex: 1;
-  min-width: 0;
+.chat-suggestions {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: center;
 }
 
-.tileset-list-name,
-.background-list-name {
-  font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tileset-list-meta,
-.background-list-meta {
-  font-size: 11px;
+.chat-suggestions button {
+  padding: 8px 12px;
+  font-size: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 16px;
   color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-/* Tile Palette */
-.tile-palette {
-  border-top: 1px solid var(--border);
+.chat-suggestions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(74, 158, 255, 0.1);
+}
+
+/* System messages */
+.chat-message.system {
+  justify-content: center;
+}
+
+.system-message {
+  background: rgba(74, 158, 255, 0.1);
+  color: var(--accent);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 12px;
+}
+
+/* Generated tileset display */
+.generated-tilesets {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.tile-palette-header {
+.generated-tileset-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.generated-tileset-item img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 50% / 16px 16px;
+  image-rendering: pixelated;
+}
+
+.tileset-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-tertiary);
+}
+
+.tile-data-actions {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.tile-data-actions .hint {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+}
+
+/* Preview column sections */
+.tilesets-section,
+.backgrounds-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
+  background: var(--bg-tertiary);
+}
+
+.section-header h4 {
+  margin: 0;
   font-size: 12px;
+  font-weight: 500;
   color: var(--text-secondary);
-  background: var(--bg-tertiary);
 }
 
-.tile-palette-canvas-container {
+.tilesets-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 8px;
-  overflow: auto;
-  max-height: 300px;
-  background: var(--bg-tertiary);
+  max-height: 120px;
+  overflow-y: auto;
 }
 
-.tile-palette-empty {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-/* Tile Editor */
-.tile-editor {
-  flex: 1;
+.tileset-thumb {
+  width: 48px;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  transition: all 0.15s;
 }
 
-.tile-editor-canvas-container {
-  flex: 1;
-  padding: 16px;
-  overflow: auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
+.tileset-thumb:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tileset-thumb.selected {
+  border-color: var(--accent);
+  background: rgba(74, 158, 255, 0.1);
+}
+
+.tileset-thumb img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+.tileset-thumb span {
+  font-size: 9px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.tileset-thumb-placeholder {
+  width: 40px;
+  height: 40px;
   background: var(--bg-tertiary);
-}
-
-.tile-editor-empty {
-  flex: 1;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  font-size: 14px;
 }
 
-/* Layers Section */
-.layers-section {
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  max-height: 200px;
-}
-
-.layer-list {
+.backgrounds-list {
+  max-height: 150px;
   overflow-y: auto;
 }
 
-.layer-list-item {
+.background-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1920,69 +1971,79 @@ button.small {
   transition: background 0.1s;
 }
 
-.layer-list-item:hover {
+.background-item:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.layer-list-item.selected {
+.background-item.selected {
   background: rgba(74, 158, 255, 0.12);
 }
 
-.layer-name {
+.background-item .bg-name {
   flex: 1;
   font-size: 13px;
 }
 
-.visibility-btn {
-  background: none;
-  border: none;
-  padding: 2px 6px;
-  cursor: pointer;
-  font-size: 14px;
-  opacity: 0.7;
+.background-item .bg-size {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
-.visibility-btn:hover {
-  opacity: 1;
+.empty-hint {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
-/* Inline form for creating tilesets/backgrounds */
-.inline-form {
+/* Background Preview */
+.preview-section {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border);
+  overflow: hidden;
 }
 
-.inline-form input,
-.inline-form select {
-  padding: 6px 10px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 13px;
+.background-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.inline-form input::placeholder {
-  color: var(--text-secondary);
-}
-
-.form-row-inline {
+.background-preview-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
   font-size: 12px;
+}
+
+.background-preview-header .meta {
   color: var(--text-secondary);
 }
 
-.form-row-inline input {
-  width: auto;
+.background-preview-canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  overflow: auto;
 }
 
-.button-row {
+.background-preview-empty {
+  flex: 1;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  gap: 4px;
+}
+
+.background-preview-empty .hint {
+  font-size: 11px;
 }

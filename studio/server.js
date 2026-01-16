@@ -650,6 +650,124 @@ app.delete('/api/games/:game/backgrounds/:id', async (req, res) => {
   }
 });
 
+// Generate background with AI
+app.post('/api/games/:game/backgrounds/generate', async (req, res) => {
+  try {
+    const { prompt, history, currentBackground, currentTileset } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        error: 'Gemini API key not configured. Set GEMINI_API_KEY environment variable.'
+      });
+    }
+
+    // Build context about the current state
+    let systemContext = `You are an AI assistant helping create tile-based game backgrounds.
+
+CURRENT STATE:
+- Tilesets available: ${(gameData.tilesets || []).map(t => `"${t.name}" (${t.tileCount} tiles, ${t.tileWidth}x${t.tileHeight}px each)`).join(', ') || 'None'}
+- Backgrounds: ${(gameData.backgrounds || []).map(b => `"${b.name}" (${b.width}x${b.height} tiles)`).join(', ') || 'None'}
+${currentBackground ? `- Currently editing: "${currentBackground.name}" (${currentBackground.width}x${currentBackground.height} tiles)` : ''}
+${currentTileset ? `- Using tileset: "${currentTileset.name}" with ${currentTileset.tileCount} tiles (${currentTileset.columns} columns x ${currentTileset.rows} rows)` : ''}
+
+CAPABILITIES:
+1. Generate tileset images (will be output as images)
+2. Create tile arrangements by outputting JSON with tile indices
+
+When the user asks to create or modify a background, you should:
+1. If no tileset exists or a new one is needed, generate a tileset image (a grid of tiles)
+2. Output any tile arrangements as JSON in this format:
+   \`\`\`tiles
+   {"layer": "Layer 1", "data": [1, 1, 2, 3, ...], "width": 20, "height": 15}
+   \`\`\`
+   Where data is a row-major array of tile indices (1-indexed, 0 = empty)
+
+For tileset images, create a grid of simple, cohesive tiles that work together. Each tile should be a square.
+Describe what tiles are in each position (e.g., "Row 1: grass, dirt, water, stone...").
+
+Keep responses concise. Focus on generating useful visual output.`;
+
+    // Call Gemini with the context
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemContext }]
+          },
+          contents: [
+            ...history.map(msg => ({
+              role: msg.role === 'assistant' ? 'model' : 'user',
+              parts: msg.images?.length > 0
+                ? [{ text: msg.content || '' }, ...msg.images.map(img => ({
+                    inlineData: {
+                      mimeType: 'image/png',
+                      data: img.url.replace(/^data:image\/\w+;base64,/, '')
+                    }
+                  }))]
+                : [{ text: msg.content }]
+            })),
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            responseModalities: ['Text', 'Image']
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.error) {
+      return res.json({ error: data.error.message || 'Gemini API error' });
+    }
+
+    const candidate = data.candidates?.[0];
+    if (!candidate) {
+      return res.json({ error: 'No response from Gemini' });
+    }
+
+    const parts = candidate.content?.parts || [];
+    let text = '';
+    const images = [];
+    let tileData = null;
+
+    for (const part of parts) {
+      if (part.text) {
+        text += part.text;
+        // Try to extract tile data from the response
+        const tileMatch = part.text.match(/```tiles\s*([\s\S]*?)\s*```/);
+        if (tileMatch) {
+          try {
+            tileData = JSON.parse(tileMatch[1]);
+          } catch (e) {
+            console.log('Failed to parse tile data:', e);
+          }
+        }
+      }
+      if (part.inlineData) {
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        const dataUrl = `data:${mimeType};base64,${part.inlineData.data}`;
+        images.push({ url: dataUrl, alt: 'Generated tileset' });
+      }
+    }
+
+    res.json({ text, images, tileData });
+  } catch (error) {
+    console.error('Background generation error:', error);
+    res.json({ error: error.message });
+  }
+});
+
 // ============ AI IMAGE GENERATION ============
 
 // Generate image with Gemini
