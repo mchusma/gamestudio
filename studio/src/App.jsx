@@ -3,6 +3,7 @@ import { StudioProvider, useStudio } from './context/StudioContext';
 import { ImageGallery } from './components/ImageGallery';
 import { SoundGallery } from './components/SoundGallery';
 import { ObjectPanel } from './components/ObjectPanel';
+import { BackgroundPanel } from './components/BackgroundPanel';
 import './App.css';
 
 function Sidebar({ activeCategory, onCategoryChange }) {
@@ -10,7 +11,8 @@ function Sidebar({ activeCategory, onCategoryChange }) {
   const categories = [
     { id: 'images', label: 'Images', icon: '🖼️' },
     { id: 'sounds', label: 'Sounds', icon: '🔊' },
-    { id: 'objects', label: 'Objects', icon: '📦' }
+    { id: 'objects', label: 'Objects', icon: '📦' },
+    { id: 'backgrounds', label: 'Backgrounds', icon: '🗺️' }
   ];
 
   const handleNewGame = () => {
@@ -75,6 +77,8 @@ function ContentPanel({ category }) {
       return <SoundGallery />;
     case 'objects':
       return <ObjectPanel />;
+    case 'backgrounds':
+      return <BackgroundPanel />;
     default:
       return null;
   }
