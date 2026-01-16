@@ -1190,6 +1190,49 @@ button.small {
   opacity: 1;
 }
 
+.image-actions {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.generated-image:hover .image-actions {
+  opacity: 1;
+}
+
+.image-action-btn {
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.8);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.image-action-btn:hover {
+  background: var(--accent);
+}
+
+.image-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.image-action-btn.save-btn:hover {
+  background: var(--success);
+}
+
 .chat-input-area {
   display: flex;
   gap: 8px;
@@ -1451,6 +1494,43 @@ button.small {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sound-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sound-action-btn {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.sound-action-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.sound-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sound-action-btn.save-btn:hover {
+  background: var(--success);
+  border-color: var(--success);
 }
 
 .sound-select-indicator {
