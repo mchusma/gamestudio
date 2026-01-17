@@ -50,6 +50,16 @@ const games = [
 k.scene("dashboard", () => {
   let selectedIndex = 0
 
+  // Updates link (top-right)
+  const updatesLink = k.add([
+    k.text("Updates >", { size: 16 }),
+    k.pos(k.width() - 80, 30),
+    k.anchor("center"),
+    k.color(150, 150, 150),
+    k.area()
+  ])
+  updatesLink.onClick(() => k.go("updates"))
+
   // Title
   k.add([
     k.text("ARCADE", { size: 48 }),
@@ -162,10 +172,12 @@ k.scene("dashboard", () => {
 import { registerCoinCollector } from "./games/coinCollector.js"
 import { registerWhackAMole } from "./games/whackAMole.js"
 import { registerRoadPuncher } from "./games/roadPuncher.js"
+import { registerUpdates } from "./scenes/updates.js"
 
 registerCoinCollector(k)
 registerWhackAMole(k)
 registerRoadPuncher(k)
+registerUpdates(k)
 
 // Start at dashboard
 k.go("dashboard")
