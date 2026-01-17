@@ -51,9 +51,9 @@ export function registerWhackAMole(k) {
       const x = spacing * (i + 1)
       holes.push({ x, y: HOLE_Y })
 
-      // Draw hole (dark ellipse)
+      // Draw hole (dark oval using rect with radius)
       k.add([
-        k.ellipse(HOLE_WIDTH / 2, 25),
+        k.rect(HOLE_WIDTH, 50, { radius: 25 }),
         k.pos(x, HOLE_Y + 30),
         k.anchor("center"),
         k.color(38, 25, 12)
