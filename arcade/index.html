@@ -10,12 +10,21 @@
       padding: 0;
       box-sizing: border-box;
     }
-    body {
+    html, body {
+      width: 100%;
+      height: 100%;
       background: #1a1a2e;
       overflow: hidden;
     }
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
     canvas {
       display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
   </style>
 </head>

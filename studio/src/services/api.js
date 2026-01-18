@@ -43,6 +43,15 @@ export const api = {
     return res.json();
   },
 
+  async updateImage(game, id, { name }) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/images/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    return res.json();
+  },
+
   async deleteImage(game, id) {
     const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/images/${id}`, {
       method: 'DELETE'
@@ -68,6 +77,15 @@ export const api = {
     const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/sounds`, {
       method: 'POST',
       body: formData
+    });
+    return res.json();
+  },
+
+  async updateSound(game, id, { name }) {
+    const res = await fetch(`${API_BASE}/games/${encodeURIComponent(game)}/sounds/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
     });
     return res.json();
   },

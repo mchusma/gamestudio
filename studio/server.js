@@ -220,6 +220,31 @@ app.post('/api/games/:game/images', upload.single('image'), async (req, res) => 
   }
 });
 
+// Update image (rename)
+app.put('/api/games/:game/images/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    const imageIndex = gameData.images.findIndex(i => i.id === req.params.id);
+    if (imageIndex === -1) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    if (name !== undefined) {
+      gameData.images[imageIndex].name = name;
+    }
+    gameData.images[imageIndex].updatedAt = new Date().toISOString();
+
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+    res.json(gameData.images[imageIndex]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete image
 app.delete('/api/games/:game/images/:id', async (req, res) => {
   try {
@@ -279,6 +304,31 @@ app.post('/api/games/:game/sounds', upload.single('sound'), async (req, res) => 
     await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
 
     res.json(soundData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update sound (rename)
+app.put('/api/games/:game/sounds/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const gameDir = getGamePath(req.params.game);
+    const gameFile = path.join(gameDir, 'game.json');
+    const gameData = JSON.parse(await fs.readFile(gameFile, 'utf-8'));
+
+    const soundIndex = gameData.sounds.findIndex(s => s.id === req.params.id);
+    if (soundIndex === -1) {
+      return res.status(404).json({ error: 'Sound not found' });
+    }
+
+    if (name !== undefined) {
+      gameData.sounds[soundIndex].name = name;
+    }
+    gameData.sounds[soundIndex].updatedAt = new Date().toISOString();
+
+    await fs.writeFile(gameFile, JSON.stringify(gameData, null, 2));
+    res.json(gameData.sounds[soundIndex]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
