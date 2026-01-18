@@ -33,6 +33,16 @@ function studioReducer(state, action) {
           images: [...state.gameData.images, action.payload]
         }
       };
+    case 'UPDATE_IMAGE':
+      return {
+        ...state,
+        gameData: {
+          ...state.gameData,
+          images: state.gameData.images.map(i =>
+            i.id === action.payload.id ? action.payload : i
+          )
+        }
+      };
     case 'DELETE_IMAGE':
       return {
         ...state,
@@ -47,6 +57,16 @@ function studioReducer(state, action) {
         gameData: {
           ...state.gameData,
           sounds: [...state.gameData.sounds, action.payload]
+        }
+      };
+    case 'UPDATE_SOUND':
+      return {
+        ...state,
+        gameData: {
+          ...state.gameData,
+          sounds: state.gameData.sounds.map(s =>
+            s.id === action.payload.id ? action.payload : s
+          )
         }
       };
     case 'DELETE_SOUND':
@@ -198,6 +218,16 @@ export function StudioProvider({ children }) {
     }
   };
 
+  const updateImage = async (id, updates) => {
+    try {
+      const image = await api.updateImage(state.currentGame, id, updates);
+      dispatch({ type: 'UPDATE_IMAGE', payload: image });
+      return image;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
   const deleteImage = async (id) => {
     try {
       await api.deleteImage(state.currentGame, id);
@@ -221,6 +251,16 @@ export function StudioProvider({ children }) {
     try {
       const sound = await api.uploadSound(state.currentGame, file, name);
       dispatch({ type: 'ADD_SOUND', payload: sound });
+      return sound;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
+  const updateSound = async (id, updates) => {
+    try {
+      const sound = await api.updateSound(state.currentGame, id, updates);
+      dispatch({ type: 'UPDATE_SOUND', payload: sound });
       return sound;
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
@@ -372,9 +412,11 @@ export function StudioProvider({ children }) {
     selectGame,
     uploadImage,
     uploadImageFromUrl,
+    updateImage,
     deleteImage,
     uploadSound,
     uploadSoundFromUrl,
+    updateSound,
     deleteSound,
     createAnimation,
     updateAnimation,

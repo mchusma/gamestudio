@@ -37,6 +37,7 @@ export function ImageGallery() {
     gameData,
     uploadImage,
     uploadImageFromUrl,
+    updateImage,
     deleteImage,
     getImageUrl,
     createAnimation,
@@ -235,6 +236,17 @@ export function ImageGallery() {
     setSelectedSprite({ ...selectedSprite, frameDuration: newDuration });
   };
 
+  const handleUpdateName = async () => {
+    if (!selectedSprite || !editName.trim() || editName === selectedSprite.name) return;
+
+    if (selectedSprite.type === 'animation') {
+      await updateAnimation(selectedSprite.id, { name: editName.trim() });
+    } else {
+      await updateImage(selectedSprite.id, { name: editName.trim() });
+    }
+    setSelectedSprite({ ...selectedSprite, name: editName.trim() });
+  };
+
   return (
     <div className="image-gallery-container">
       {/* Left column - List */}
@@ -351,6 +363,8 @@ export function ImageGallery() {
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                onBlur={handleUpdateName}
+                onKeyDown={(e) => e.key === 'Enter' && handleUpdateName()}
                 placeholder="Sprite name"
               />
             </div>

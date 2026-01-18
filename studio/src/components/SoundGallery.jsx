@@ -3,9 +3,10 @@ import { useStudio } from '../context/StudioContext';
 import { AddSoundModal } from './AddSoundModal';
 
 export function SoundGallery() {
-  const { gameData, uploadSound, uploadSoundFromUrl, deleteSound, getSoundUrl } = useStudio();
+  const { gameData, uploadSound, uploadSoundFromUrl, updateSound, deleteSound, getSoundUrl } = useStudio();
   const [playingId, setPlayingId] = useState(null);
   const [selectedSound, setSelectedSound] = useState(null);
+  const [editName, setEditName] = useState('');
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const audioRef = useRef(null);
@@ -28,6 +29,13 @@ export function SoundGallery() {
 
   const handleSelect = (sound) => {
     setSelectedSound(sound);
+    setEditName(sound.name);
+  };
+
+  const handleUpdateName = async () => {
+    if (!selectedSound || !editName.trim() || editName === selectedSound.name) return;
+    await updateSound(selectedSound.id, { name: editName.trim() });
+    setSelectedSound({ ...selectedSound, name: editName.trim() });
   };
 
   const handlePlay = (sound) => {
@@ -119,8 +127,10 @@ export function SoundGallery() {
               <label>Name</label>
               <input
                 type="text"
-                value={selectedSound.name}
-                readOnly
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onBlur={handleUpdateName}
+                onKeyDown={(e) => e.key === 'Enter' && handleUpdateName()}
                 placeholder="Sound name"
               />
             </div>

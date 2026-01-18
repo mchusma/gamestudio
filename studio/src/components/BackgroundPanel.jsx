@@ -437,7 +437,7 @@ export function BackgroundPanel() {
                 className="delete-btn"
                 onClick={(e) => { e.stopPropagation(); handleDeleteTileset(tileset.id); }}
               >
-                x
+                ×
               </button>
             </div>
           ))}
@@ -527,7 +527,7 @@ export function BackgroundPanel() {
                 className="delete-btn"
                 onClick={(e) => { e.stopPropagation(); handleDeleteBackground(bg.id); }}
               >
-                x
+                ×
               </button>
             </div>
           ))}
@@ -565,7 +565,7 @@ export function BackgroundPanel() {
                       className="delete-btn"
                       onClick={(e) => { e.stopPropagation(); deleteLayer(layer.id); }}
                     >
-                      x
+                      ×
                     </button>
                   )}
                 </div>
